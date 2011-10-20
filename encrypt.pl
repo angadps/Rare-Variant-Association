@@ -50,9 +50,9 @@ sub new {       	#subroutine to create new object. Paramters set are 'user' refe
 	$master_gene=shift;
 	$output_dir=shift;
 	$output_dir=~s/\/$//;
-	if (! -d $output_dir) { mkdir $output_dir, 0777; chmod 0777, $output_dir;}
+	if (! -d $output_dir) { mkdir $output_dir, 0777;}
 	else { `rm -rf $output_dir/*`;}
-	if (! -d $output_dir."/VT") {mkdir $output_dir."/VT", 0777; chmod 0777, $output_dir."/VT";}  #creates a new, numbered directory for each gene
+	if (! -d $output_dir."/VT") {mkdir $output_dir."/VT", 0777;}  #creates a new, numbered directory for each gene
 	bless {}
 }
 
@@ -86,6 +86,13 @@ sub open_input_files	#subroutine to open all input files and store file handles 
         	}
 	}
         return ($count);
+}
+
+sub close_input_files
+{
+	foreach $file (@input_file) {
+		close($file->{HANDLE});
+	}
 }
 
 sub LHSinfo($) {  	# extract the LHS of a function-gene tuple from info field, i.e. - functional name
@@ -177,12 +184,12 @@ sub create_gene_file{ 		#subroutine to create a gene file called "geneXXX" where
 	my $name_key=shift;
 	my $random_number = int(rand($num_dirs));
 
-        my $path=$output_dir."/GENES"; if (! -d $path) { mkdir $path, 0777; chmod 0777, $path;}
+        my $path=$output_dir."/GENES"; if (! -d $path) { mkdir $path, 0777;}
 	$path.="/DIR_$random_number"; 
-	if (! -d $path) { mkdir $path, 0777; chmod 0777, $path;}
-	$path.="/GENE".$geneCount[$random_number]."vcf";
+	if (! -d $path) { mkdir $path, 0777;}
+	$path.="/GENE".$geneCount[$random_number].".vcf";
         open("FH_$name_key", ">>", $path) or die "Cannot create gene file for $name_key called $path";
-        chmod 0777, $path;
+	select((select("FH_$name_key"), $|=1)[0]);
 	$current_gene_pool{$name_key} = [$path];
 
 	#TODO add in the @header a line for info
@@ -196,6 +203,7 @@ sub create_gene_file{ 		#subroutine to create a gene file called "geneXXX" where
 sub empty_gene_pool{ 		#subroutine to close a geneXXX.vcf file, print the gene file's path in a common GeneInfo.txt file, and finally empty the current gene pool
         my $self = shift;
 	open FH_info, ">".$output_dir."/".$gene_out_file or die "Cannot open file $output_dir/$gene_out_file";
+	select((select(FH_info), $|=1)[0]);
 	for $name_key ( keys %current_gene_pool ) {
 		if (substr($name_key, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
 		my $gene_name = substr($name_key, 3, length($name_key));
@@ -214,6 +222,7 @@ sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file.
 
 	for (keys %$buffer) {
         open($temp_handle, ">>", $current_gene_pool{$_}[0]) or die "Cannot open handle to append";
+	select((select($temp_handle), $|=1)[0]);
 		my @arr = @{$buffer->{$_}};
 		#my $string = $user->{CIPHER}->encrypt($arr[0]) ."\t";
                 my $string = $arr[0]."\t";
@@ -422,6 +431,7 @@ sub shatterVCF{		#main function which reads all input vcf files, extracts data i
 sub write_pheno_file{		#prints the phenotypes of all individuals from all input vcf files, into a common Pheno.txt file
         my $self = shift;
 	open FH_id, ">".$output_dir."/".$phenotype_file or die "Cannot create $output_dir/$phenotype_file\n";
+	select((select(FH_id), $|=1)[0]);
 	for $id ( keys %IDhash ) {
 		#print FH_id  $user->{CIPHER}->encrypt($id) . "\t"  . $IDhash{$id} . "\n";	# prints Individual ID (encrypted) & phenotype
 		print FH_id $id. "\t". $IDhash{$id}. "\n";   		# prints Individual ID (not encrypted) & phenotype  for testing
@@ -436,7 +446,7 @@ sub write_VT_files {
 	my $self = shift;
 	my @gect = ((0) x $num_dirs);
 	open Info, ">", "$output_dir"."/info.txt" or die "Can't open file info\n";
-
+	select((select(Info), $|=1)[0]);
 	for $gene ( sort keys %gene_table) {
 		my $random_number = int(rand($num_dirs));
 		my $gdir = "VT/DIR_$random_number/gene$gect[$random_number]";
@@ -446,6 +456,9 @@ sub write_VT_files {
 		open Phenotypes, ">", "$cdir/data.pheno" or die "Cannot create phenotype file: $gdir/data.pheno\n";
 		open Genotypes, ">", "$cdir/data.geno" or die "Cannot create genotype file: $gdir/data.geno\n";
 		open Weights, ">", "$cdir/data.wt" or die "Cannot create weight file: $gdir/data.wt\n";
+	select((select(Phenotypes), $|=1)[0]);
+	select((select(Genotypes), $|=1)[0]);
+	select((select(Weights), $|=1)[0]);
 
 		#if (substr($gene, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
 		#my $gene_name = substr($gene, 3, length($gene));
@@ -587,6 +600,7 @@ if (@ARGV > 0 ) {
 	$VCFobj->shatterVCF();
 	$VCFobj->write_pheno_file();
 	$VCFobj->write_VT_files();
+	$VCFobj->close_input_files();
 }
 
 exit;

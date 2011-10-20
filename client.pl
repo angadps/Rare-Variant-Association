@@ -36,8 +36,8 @@ my $flag_decrypt;
 my $flag_help;
 my $username=""; 
 my $password=""; 
-my $casef=""; 
-my $control=""; 
+my $cases=""; 
+my $controls=""; 
 my $output=""; 
 my @src_dir; 
 my $dest_dir; 
@@ -50,8 +50,8 @@ my $ref="";
 
 sub help_routine() {
 		print "\nHelp Options..\n";
-		print "\n (2) Generate Key: \n\t ./engine.PL --genkey --user=S --pwd=S --gene_ref=S --ref=S --casef=S{,} --control=S{,} --genelist=S --weight=S --out=S";
- 		print "\n (3) Encrypt Data: \n\t ./engine.pl --encrypt --user=S --keyfile=S --casef=S{,} --control=S{,} --genelist=S --weight=S --out=S";
+		print "\n (2) Generate Key: \n\t ./engine.PL --genkey --user=S --pwd=S --gene_ref=S --ref=S --cases=S{,} --controls=S{,} --genelist=S --weight=S --out=S";
+ 		print "\n (3) Encrypt Data: \n\t ./engine.pl --encrypt --user=S --keyfile=S --cases=S{,} --controls=S{,} --genelist=S --weight=S --out=S";
 		print "\n (5) Decrypt Scores: \n\t ./engine.PL --decrypt --keyfile=S --out=S --score=S";
 		print "\n (6) Help: \n\t ./engine.PL --help\n\n";
 }
@@ -63,8 +63,8 @@ if ( @ARGV > 0 ) {
 			"decrypt" => \$flag_decrypt,
 			"user:s" => \$username,
 			"pwd:s" => \$password,
-			"casef:s" => \$casef,
-			"control:s" => \$control,
+			"cases:s" => \$cases,
+			"controls:s" => \$controls,
 			"genelist:s" => \$genelist,
 			"weight:s" => \$weightfile,
 			"gene_ref:s" => \$gene_ref,
@@ -81,11 +81,13 @@ if ( @ARGV > 0 ) {
 	}
 	elsif ($flag_genkey)
 	{
+		print "\n\n\n";
+		print "Beginning Registration now..\n";
 		if($username eq "" || $password eq "") {die "Username not provided\n"};
 
 		my $len = 32;
 my $server_socket = new IO::Socket::INET (
-				PeerAddr => 'login3.titan',
+				PeerAddr => 'b1a.c0.titan',
 				PeerPort => '7070',
 				Proto => 'tcp',
 				);
@@ -95,19 +97,20 @@ die "Could not create server socket: $!\n" unless $server_socket;
 		foreach (@reg_details) {
 			print $server_socket $_;}
 
-		my $new_sock = $receive_socket->accept();
-		my $ret = <$new_sock>;
+		my $new_sock;
+		my $ser_sock = $receive_socket->accept();
+		my $ret = <$ser_sock>;
 		chomp $ret;
 		if($ret eq 11) { die "Username: $username already exists\n";}
 		elsif($ret eq 22) { die "Server: $localhost already exists\n";}
 		elsif($ret ne 0) { die "Registration failed for unknown error\n";}
 
-		my $line = <$new_sock>;
+		my $line = <$ser_sock>;
 		chomp $line;
 		my @keyex_details = split(/\t/, $line);
 		my $FIRST = $keyex_details[0];
 		my $next_host = $keyex_details[1];
-		print "Registration complete. Beginning key generation now\n";
+		print "Registration complete. Beginning key generation now..\n";
 
                 my @arguments = ("perl", $REGISTER, $username, $password);
                 if(system(@arguments) != 0) {
@@ -200,39 +203,45 @@ die "Could not create send socket: $!\n"; }
 
 		print $server_socket "1\t$localhost\n";
 
+		if($FIRST == 1) {
+			my $part = "";
+			read $new_sock, $part, $len;
+		}
+
 		print "Key generation complete. Proceeding to annotation\n";
 
 		chdir $VCF_SNP_DIR or die "Can't cd to vcf dir: $!\n";
 		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
-		my $ANNOT_CASE = $casef."case.vcf";
+		my $ANNOT_CASE = $cases."case.vcf";
 		my $CASE_GENE_LIST = $gene_ref."case";
-		print "\nBeginning annotation for $casef. It may be a while so please be patient\n";
-		my @annot = ($ANNOTATE, "-s", $casef, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE, "-l", $CASE_GENE_LIST);
+		print "\nBeginning annotation for $cases. It may be a while so please be patient\n";
+		my @annot = ($ANNOTATE, "-s", $cases, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE, "-l", $CASE_GENE_LIST);
 		#system(@annot) or die "Annot case failed\n";
-		print "\n\nAnnotation complete for $casef\n";
+		print "\n\nAnnotation complete for $cases\n";
 
 		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
-		my $ANNOT_CONTROL = $control."control.vcf";
+		my $ANNOT_CONTROL = $controls."control.vcf";
 		my $CONTROL_GENE_LIST = $gene_ref."control";
-		print "\nBeginning annotation for $control. It may be a while so please be patient\n";
-		@annot = ($ANNOTATE, "-s", $control, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL, "-l", $CONTROL_GENE_LIST);
+		print "\nBeginning annotation for $controls. It may be a while so please be patient\n";
+		@annot = ($ANNOTATE, "-s", $controls, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL, "-l", $CONTROL_GENE_LIST);
 		#system(@annot) or die "Annot control failed\n";
-		print "\n\nAnnotation complete for $control\n";
+		print "\n\nAnnotation complete for $controls\n";
 		chdir $CURR_DIR or die "Can't cd to code dir: $!\n";
 
 		`cat $CASE_GENE_LIST $CONTROL_GENE_LIST | sort -ur > $genelist`;
 
 		##### Submit annotated files for encryption, public key, username, genelist (same as that used in annotation) and weights files MUST be provided.
+		print "Beginning encryption of data now\n";
 		$output = $username."_out";
 		@arguments = ("perl", $ENCRYPT); # calls encrypt.pl script
 		if ($username eq "") {die "Username not provided\n";}
 		else	{ @arguments = (@arguments, "-user", $username);}
 		if ($key eq "") {die "keyfile not provided\n";}
 		else	{ @arguments = (@arguments, "-keyfile", $key);}
-		if ($casef eq "") {die "case file not provided\n";}
+		if ($cases eq "") {die "case file not provided\n";}
 		else	{ @arguments = (@arguments, "-case", $ANNOT_CASE);}
-		if ($control eq "") {die "conrol file not provided\n";}
-		else	{ @arguments = (@arguments, "-control", $ANNOT_CONTROL);}
+		if ($controls eq "") {die "conrol file not provided\n";}
+		else	{ @arguments = (@arguments, "-controls", $ANNOT_CONTROL);}
 		if ($output eq "") {die "output dir not provided\n";}
 		else	{ @arguments = (@arguments, "-out", $output);}
 		if ($genelist eq "") {die "genelist not provided\n";}
@@ -244,7 +253,7 @@ print "Encryption command: @arguments\n";
 		print "\n\nEncryption Successful. Sending data to server for association testing.\n";
 
 		unlink("$username.tar");
-		my @zip = ("tar", "-cvf", "$username.tar", $output);
+		my @zip = ("tar", "-cf", "$username.tar", $output);
 		if(system(@zip)!=0){die "@zip failed\n";}
 		unlink("$username.tar.gz");
 		@zip = ("gzip", "$username.tar");
@@ -252,27 +261,44 @@ print "Encryption command: @arguments\n";
 
 		my $term = "XXX\n";
 		print $server_socket $term;
+		my $filesize = -s "$username.tar.gz";
+		$filesize = $filesize."\n";
+		print $server_socket $filesize;
 		open ZIP_FILE, "$username.tar.gz";
 		while (<ZIP_FILE>) {
 		    print $server_socket $_;
 		}
 		close ZIP_FILE;
-exit 1;
-		my $score_file = "Score_enc.txt";
+		print "Data sent. Waiting for Scores file!\n";
+
+		my $part = "";
+		$n = read $ser_sock, $term, 4;
+		chomp $term;
+		if($term ne "XXX") {die "XXX not received";}
+		$n = read $ser_sock, $term, 4;
+		chomp $term;
+
+		my $score_file = "Score_$username.txt";
 		unlink("$score_file.tar.gz");
 		open SCORE_FILE, ">$score_file.tar.gz" or die "Can't open: $!";
-		while (<$receive_socket>) {
-	    		print SCORE_FILE $_;
+		$n = 0;
+		binmode $ser_sock;$part = "";
+		for(my $j=0;$j<$term;$j++) {
+			$n = read $ser_sock, $part, 1;
+			if($n == 0) { die "Premature file exit\n"; }
+			print SCORE_FILE $part;
 		}
+
 		close SCORE_FILE;
+		print "Scores file received. Decrypting...\n";
 
 		unlink("$score_file.tar");
 		@zip = ("gunzip", "$score_file.tar.gz");
 		if(system(@zip)!=0){die "@zip failed\n";}
 		unlink($score_file);
-		@zip = ("tar", "xvf", "$score_file.tar");
+		@zip = ("tar", "xf", "$score_file.tar");
 		if(system(@zip)!=0){die "@zip failed\n";}
-exit 1;
+
 		@arguments = ("perl",$DECRYPT,  # "/ifs/scratch/c2b2/ip_lab/sz2317/privacy/workingdir/decryptScores.pl",
 				"-keyfile", $key,
 				"-out", "Score.txt",

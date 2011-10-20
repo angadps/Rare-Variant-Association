@@ -70,6 +70,8 @@ if ( @ARGV > 0 ) {
 		open Userfile, ">", $user_file;
 		my @user_list=();my @server_list=();
 
+		print "\n\n\n";
+		print "Awaiting client registration\n\n";
 		while ($user_count != $MAX_USERS)
 		{
 			my $new_socket = $receive_socket->accept();
@@ -109,6 +111,7 @@ if ( @ARGV > 0 ) {
 					$new_sock{$userid} = $new_socket;
 				}
 			} else { die "Improper line read\n"; }
+			print "Client $user_count registration complete\n";
 		}
 		close(Userfile);
 
@@ -143,6 +146,7 @@ if ( @ARGV > 0 ) {
 
 		# Code here for waiting for and accepting encrypted data
 
+		print "\nWaiting for encrypted files now\n";
 		my $src_dir = "assoc_input";
 		`rm -rf $src_dir`;
 		`mkdir -p $src_dir`;
@@ -152,19 +156,24 @@ if ( @ARGV > 0 ) {
 			my $term = readline $new_sock{$user_list[$i]};
 			chomp $term;
 			if($term ne "XXX") {die "XXX not received";}
+			$term = readline $new_sock{$user_list[$i]};
+			chomp $term;
 			open ENCRYP_FILE, ">$encryp_file.tar.gz" or die "Can't open: $!";
-			my $j = 0;my $n = 0;
+			my $n = 0;
 			binmode $new_sock{$user_list[$i]};my $part = "";
-			while(($n = read $new_sock{$user_list[$i]}, $part, 1) != 0){
-				$j++;
+			for(my $j=0;$j<$term;$j++) {
+				$n = read $new_sock{$user_list[$i]}, $part, 1;
+				if($n == 0) { die "Premature file exit\n"; }
 				print ENCRYP_FILE $part;
 			}
 			close ENCRYP_FILE;
 
 			my @unzip = ("gunzip", "$encryp_file.tar.gz");
 			if(system(@unzip) !=0) {die "@unzip failed\n";}
-			@unzip = ("tar", "xvf", "$encryp_file.tar");
+			@unzip = ("tar", "xf", "$encryp_file.tar");
 			if(system(@unzip) !=0) {die "@unzip failed\n";}
+
+			print "Encrypted files received from user $i\n";
 		}
 		chdir ".." or die "Cannot cd to ..";
 		print "Encrypted files received. Starting merge\n";
@@ -177,28 +186,38 @@ if ( @ARGV > 0 ) {
 				"-src", $src_dir,
 				"-out", $dest_dir);
 		if(system(@arguments)!=0) {die "Merging failed\n";}
-		print "\n\nMerging Successful\n";
+		print "\n\nMerging Successful. Performing association testing now\n";
 
 		@arguments = ("perl", $ASSOC,  
 				"-out", "Scores.txt",
 				"-dir", $dest_dir,
 				"-info", $dest_dir."/info.txt");
 		if(system(@arguments)!=0) {die "Association testing failed\n";}
-		print "\n\nAssociation Testing Successful\n";
-exit 1;
-		my @zip = ("tar", "-cvf", "Scores.txt.tar", "Scores.txt");
+		print "\n\nAssociation Testing Successful.\n\n";
+
+		unlink("Scores.txt.tar"); 
+		unlink("Scores.txt.tar.gz");
+		my @zip = ("tar", "-cf", "Scores.txt.tar", "Scores.txt");
 		if(system(@zip)!=0) {die "@zip failed\n";}
 		@zip = ("gzip", "Scores.txt.tar");
 		if(system(@zip)!=0) {die "gzip Scores.txt.tar failed\n";}
+		print "Sending score files now\n";
 
 		for(my $i=0;$i<$MAX_USERS;$i++) {
-			open SCORE_FILE, "Scores.txt.tar.gz";
+			my $client = $send_socket{$user_list[$i]};
+			my $term = "XXX\n";
+			print $client $term;
+			my $filesize = -s "Scores.txt.tar.gz";
+			$filesize = $filesize."\n";
+			print $client $filesize;
+			open SCORE_FILE, "Scores.txt.tar.gz" or die "Cannot open Scores.txt.tar.gz";
 			while (<SCORE_FILE>) {
-				my $new_socket = $new_sock{$user_list[$i]};
-			    	print $new_socket $_;
+			    	print $client $_;
 			}
 			close SCORE_FILE;
+			print "Scores file sent to user $i\n";
 		}
+		print "\n\nAll scores file sent. Exiting safely\n";
 	}
 	else {
 		help_routine();
