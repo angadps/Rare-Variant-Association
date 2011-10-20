@@ -40,7 +40,7 @@ my $line = <info>;
 chomp $line;
 my @gene = split(/\t/, $line);
 
-$output = `/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/R/R-2.13.2/bin/Rscript --slave rareVariantTests.R -p 1000 -n 0 -a $gene[0]/data.pheno -b $gene[0]/data.wt -c $gene[0]/data.geno`;
+$output = `/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/R/R-2.13.2/bin/Rscript --slave rareVariantTests.R -p 1000 -n 0 -a $gene[0].data.pheno -b $gene[0].data.wt -c $gene[0].data.geno`;
 #$output = `/nfs/apps/R/2.9.0/bin/Rscript --slave /ifs/scratch/c2b2/ip_lab/reb2143/rareVariantTests.R -p 100000 -n 0 -a $dir/gene$i/data.pheno -b $dir/gene$i/data.wt -c $dir/gene$i/data.geno`;
 
 #The following takes the output of the tests, and obtains the relavent madison-browning association score.

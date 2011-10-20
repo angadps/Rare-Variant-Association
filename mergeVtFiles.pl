@@ -3,7 +3,7 @@
 #This script will take the encrypted files generated from Alice and Bob and will merge the files.
 #This script will be run by Trevor
 
-my $num_dirs=2;
+my $num_dirs=30;
 my $src =""; #The directory of one person's numbered gene directories
 my $output=""; #A trusted third party's directory that will contain the merged numbered gene directories
 my @array=@ARGV;
@@ -46,6 +46,10 @@ for (my $it=0; $it < $num; $it++) {
 my @geneCount = ((0) x $num_dirs);
 open infoOut, ">", "$output"."/info.txt";  #creates a new info file mapping the merged list of genes to a numbered directory
 
+for(my $rdir=0;$rdir<$num_dirs;$rdir++) {
+	system("mkdir -p $output/DIR_$rdir");
+}
+
 foreach $Gene (sort keys %h){
 	if(scalar(keys(%{$h{$Gene}}))==1){
 		formatFiles($h{$Gene}); 
@@ -71,16 +75,16 @@ sub formatFiles{
 
 	print infoOut "$output_dir\t$Gene\n";
 
-	if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
-	else { `rm -rf $output_dir/*`;}
+	#if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
+	#else { `rm -rf $output_dir/*`;}
 
-	open genotypeOut, ">", "$output_dir/data.geno" or die "help!3";
-	open phenotypeOut, ">", "$output_dir/data.pheno" or die "help!6";
-	open weightsOut, ">", "$output_dir/data.wt" or die "help!9";
+	open genotypeOut, ">", "$output_dir.data.geno" or die "help!3";
+	open phenotypeOut, ">", "$output_dir.data.pheno" or die "help!6";
+	open weightsOut, ">", "$output_dir.data.wt" or die "help!9";
  
-	open genotypeIn, "$dir/$filename/data.geno";
-	open phenotypeIn, "$dir/$filename/data.pheno";
-	open weightsIN, "$dir/$filename/data.wt";
+	open genotypeIn, "$dir/$filename.data.geno";
+	open phenotypeIn, "$dir/$filename.data.pheno";
+	open weightsIN, "$dir/$filename.data.wt";
 
 	while(<weightsIN>){ #this is the polyphen weight file which is: encryptedposition\tscore
 		my $line = $_;
@@ -139,9 +143,9 @@ sub mergeFiles{
 
 	if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
 	else { `rm -rf $output_dir/*`;}
-	open genotypeOut, ">", "$output_dir/data.geno" or die "help!3";
-	open phenotypeOut, ">", "$output_dir/data.pheno" or die "help!6";
-	open weightsOut, ">", "$output_dir/data.wt" or die "help!9";
+	open genotypeOut, ">", "$output_dir.data.geno" or die "help!3";
+	open phenotypeOut, ">", "$output_dir.data.pheno" or die "help!6";
+	open weightsOut, ">", "$output_dir.data.wt" or die "help!9";
 		my %position;
 		my $snvCount=0;
 
@@ -152,9 +156,9 @@ sub mergeFiles{
 		my %person;
 		my $indCount =0;
 
-		open genotypeIn, "$dir/$filename/data.geno" or die "help!1";
-		open phenotypeIn, "$dir/$filename/data.pheno" or die "help!4";
-		open weightsIn, "$dir/$filename/data.wt" or die "help!7";
+		open genotypeIn, "$dir/$filename.data.geno" or die "help!1";
+		open phenotypeIn, "$dir/$filename.data.pheno" or die "help!4";
+		open weightsIn, "$dir/$filename.data.wt" or die "help!7";
 
 		#This is the same in the formatFiles subfunction
 		while(<weightsIn>){

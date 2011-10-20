@@ -36,8 +36,8 @@ my $flag_decrypt;
 my $flag_help;
 my $username=""; 
 my $password=""; 
-my $cases=""; 
-my $controls=""; 
+my @cases=""; 
+my @controls=""; 
 my $output=""; 
 my @src_dir; 
 my $dest_dir; 
@@ -63,8 +63,8 @@ if ( @ARGV > 0 ) {
 			"decrypt" => \$flag_decrypt,
 			"user:s" => \$username,
 			"pwd:s" => \$password,
-			"cases:s" => \$cases,
-			"controls:s" => \$controls,
+			"cases:s{,}" => \@cases,
+			"controls:s{,}" => \@controls,
 			"genelist:s" => \$genelist,
 			"weight:s" => \$weightfile,
 			"gene_ref:s" => \$gene_ref,
@@ -167,7 +167,6 @@ die "Could not create server socket: $!\n" unless $server_socket;
 			binmode Sharekey; my $s = "";
 			while(($n = read Sharekey, $s, 1) != 0)
 				{$send_key[$i++]=$s; }
-		#my @send_key = <Sharekey>;
 		close(Sharekey);
 		sleep(1);
 my $send_socket = new IO::Socket::INET (
@@ -210,25 +209,38 @@ die "Could not create send socket: $!\n"; }
 
 		print "Key generation complete. Proceeding to annotation\n";
 
-		chdir $VCF_SNP_DIR or die "Can't cd to vcf dir: $!\n";
-		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
-		my $ANNOT_CASE = $cases."case.vcf";
-		my $CASE_GENE_LIST = $gene_ref."case";
-		print "\nBeginning annotation for $cases. It may be a while so please be patient\n";
-		my @annot = ($ANNOTATE, "-s", $cases, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE, "-l", $CASE_GENE_LIST);
-		#system(@annot) or die "Annot case failed\n";
-		print "\n\nAnnotation complete for $cases\n";
+		my $temp_file = "temp_gene_list";
+		unlink($temp_file);
 
+		my @ANNOT_CASE = (1 .. scalar(@cases)-1);
+		my @CASE_GENE_LIST = (1 .. scalar(@cases)-1);
+	for(my $cai=1;$cai<scalar(@cases);$cai++) {
 		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
-		my $ANNOT_CONTROL = $controls."control.vcf";
-		my $CONTROL_GENE_LIST = $gene_ref."control";
-		print "\nBeginning annotation for $controls. It may be a while so please be patient\n";
-		@annot = ($ANNOTATE, "-s", $controls, "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL, "-l", $CONTROL_GENE_LIST);
-		#system(@annot) or die "Annot control failed\n";
-		print "\n\nAnnotation complete for $controls\n";
-		chdir $CURR_DIR or die "Can't cd to code dir: $!\n";
+		$ANNOT_CASE[$cai-1] = $cases[$cai]."case.vcf";
+		$CASE_GENE_LIST[$cai-1] = $gene_ref.".case".$cai;
+		print "\nBeginning annotation for $cases[$cai]. It may be a while so please be patient\n";
+		my @annot = ($ANNOTATE, "-s", $cases[$cai], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE[$cai-1], "-l", $CASE_GENE_LIST[$cai-1]);
+		print(@annot);
+		system(@annot) or die "Annot case failed\n"; #UNDO
+		`cat $CASE_GENE_LIST[$cai-1] >> $temp_file`;
+		print "\n\nAnnotation complete for $cases[$cai]\n";
+	}
+		my @ANNOT_CONTROL = (1 .. scalar(@controls)-1);
+		my @CONTROL_GENE_LIST = (1 .. scalar(@controls)-1);
+	for(my $coi=1;$coi<scalar(@controls);$coi++) {
+		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
+		$ANNOT_CONTROL[$coi-1] = $controls[$coi]."control.vcf";
+		$CONTROL_GENE_LIST[$coi-1] = $gene_ref.".control".$coi;
+		print "\nBeginning annotation for $controls[$coi]. It may be a while so please be patient\n";
+		my @annot = ($ANNOTATE, "-s", $controls[$coi], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL[$coi-1], "-l", $CONTROL_GENE_LIST[$coi-1]);
+		system(@annot) or die "Annot control failed\n"; #UNDO
+		`cat $CONTROL_GENE_LIST[$coi-1] >> $temp_file`;
+		print "\n\nAnnotation complete for $controls[$coi]\n";
+	}
 
-		`cat $CASE_GENE_LIST $CONTROL_GENE_LIST | sort -ur > $genelist`;
+		`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
+		`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
+		unlink($temp_file);
 
 		##### Submit annotated files for encryption, public key, username, genelist (same as that used in annotation) and weights files MUST be provided.
 		print "Beginning encryption of data now\n";
@@ -238,10 +250,10 @@ die "Could not create send socket: $!\n"; }
 		else	{ @arguments = (@arguments, "-user", $username);}
 		if ($key eq "") {die "keyfile not provided\n";}
 		else	{ @arguments = (@arguments, "-keyfile", $key);}
-		if ($cases eq "") {die "case file not provided\n";}
-		else	{ @arguments = (@arguments, "-case", $ANNOT_CASE);}
-		if ($controls eq "") {die "conrol file not provided\n";}
-		else	{ @arguments = (@arguments, "-controls", $ANNOT_CONTROL);}
+		if (scalar(@ANNOT_CASE) eq 0) {die "case file not provided\n";}
+		else	{ @arguments = (@arguments, "-case", @ANNOT_CASE);}
+		if (scalar(@ANNOT_CONTROL) eq 0) {die "conrol file not provided\n";}
+		else	{ @arguments = (@arguments, "-control", @ANNOT_CONTROL);}
 		if ($output eq "") {die "output dir not provided\n";}
 		else	{ @arguments = (@arguments, "-out", $output);}
 		if ($genelist eq "") {die "genelist not provided\n";}
@@ -249,21 +261,25 @@ die "Could not create send socket: $!\n"; }
  		if ($weightfile eq "") {die "weightfile not provided\n";}
                       else  { @arguments = (@arguments, "-weight", $weightfile);}
 print "Encryption command: @arguments\n";
-		if (system(@arguments) != 0) { die "Encryption failed\n"; }
+		if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
 		print "\n\nEncryption Successful. Sending data to server for association testing.\n";
 
 		unlink("$username.tar");
-		my @zip = ("tar", "-cf", "$username.tar", $output);
+		my @zip = ("tar", "-c", "--checkpoint=100", "-f", "$username.tar", $output);
 		if(system(@zip)!=0){die "@zip failed\n";}
+		print "File tar complete\n";
 		unlink("$username.tar.gz");
 		@zip = ("gzip", "$username.tar");
 		if(system(@zip)!=0){die "@zip failed\n";}
+		print "File zip complete\n";
 
 		my $term = "XXX\n";
 		print $server_socket $term;
+		print "Initiated transfer\n";
 		my $filesize = -s "$username.tar.gz";
 		$filesize = $filesize."\n";
 		print $server_socket $filesize;
+		print "Sending $filesize bytes\n";
 		open ZIP_FILE, "$username.tar.gz";
 		while (<ZIP_FILE>) {
 		    print $server_socket $_;
@@ -296,7 +312,7 @@ print "Encryption command: @arguments\n";
 		@zip = ("gunzip", "$score_file.tar.gz");
 		if(system(@zip)!=0){die "@zip failed\n";}
 		unlink($score_file);
-		@zip = ("tar", "xf", "$score_file.tar");
+		@zip = ("tar", "-x", "--checkpoint=1000", "-f", "$score_file.tar");
 		if(system(@zip)!=0){die "@zip failed\n";}
 
 		@arguments = ("perl",$DECRYPT,  # "/ifs/scratch/c2b2/ip_lab/sz2317/privacy/workingdir/decryptScores.pl",

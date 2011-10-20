@@ -26,9 +26,9 @@ use POSIX qw/floor/;
 	my $num_fields=9;		# The number is actually 8, but we use 9 because of perl array numbering conventions
 	my $gene_out_file="GeneInfo.txt";
 	my $phenotype_file="Pheno.txt";
-	my $num_dirs=2;
+	my $num_dirs=10;
 
-	my %chr_map = ("1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5, "6" => 6, "7" => 7, "8" => 8, "9" => 9, "10"=> 10, "11" => 11, "12" => 12, "13" => 13, "14" => 14, "15" => 15, "16" => 16, "17" => 17, "18" => 18, "19" => 19, "20" => 20, "21" => 21, "22" => 22, "X" => 23, "Y" => 24, "M" => 25);
+	my %chr_map = ("1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5, "6" => 6, "7" => 7, "8" => 8, "9" => 9, "10"=> 10, "11" => 11, "12" => 12, "13" => 13, "14" => 14, "15" => 15, "16" => 16, "17" => 17, "18" => 18, "19" => 19, "20" => 20, "21" => 21, "22" => 22, "X" => 23, "Y" => 24, "M" => 25, "chr1" => 1, "chr2" => 2, "chr3" => 3, "chr4" => 4, "chr5" => 5, "chr6" => 6, "chr7" => 7, "chr8" => 8, "chr9" => 9, "chr10"=> 10, "chr11" => 11, "chr12" => 12, "chr13" => 13, "chr14" => 14, "chr15" => 15, "chr16" => 16, "chr17" => 17, "chr18" => 18, "chr19" => 19, "chr20" => 20, "chr21" => 21, "chr22" => 22, "chrX" => 23, "chrY" => 24, "chrM" => 25);
 	my $chr_max_len=1000000000;	# 1G or maximum possible length of any chromosome.
 
 	my @input_file=(); 		# array of hashes {NAME, HANDLE, PHENOTYPE, Flag_read, @line, #IDstart, #IDend}
@@ -51,7 +51,7 @@ sub new {       	#subroutine to create new object. Paramters set are 'user' refe
 	$output_dir=shift;
 	$output_dir=~s/\/$//;
 	if (! -d $output_dir) { mkdir $output_dir, 0777;}
-	else { `rm -rf $output_dir/*`;}
+	else { `rm -rf $output_dir/*`;} #UNDO
 	if (! -d $output_dir."/VT") {mkdir $output_dir."/VT", 0777;}  #creates a new, numbered directory for each gene
 	bless {}
 }
@@ -206,7 +206,7 @@ sub empty_gene_pool{ 		#subroutine to close a geneXXX.vcf file, print the gene f
 	select((select(FH_info), $|=1)[0]);
 	for $name_key ( keys %current_gene_pool ) {
 		if (substr($name_key, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
-		my $gene_name = substr($name_key, 3, length($name_key));
+		my $gene_name = substr($name_key, 2);
 		#print FH_info  $user->{CIPHER}->encrypt($gene_name)."\t".$current_gene_pool{$name_key}[0]."\n";   #Update GeneInfo.txt with Gene name(encrypted) & its path on system
 		print FH_info  $gene_name."\t".$current_gene_pool{$name_key}[0]."\n";   #Update GeneInfo.txt with Gene name(encrypted) & its path on system
 	}
@@ -311,7 +311,7 @@ sub extractInfo {		#arguments - $object_ref (discarded), $file handle
 	  my ($theGene) =  $self->RHSinfo($info_item);
 	    if (($theGene ne "") && (exists $master_gene->{GENE_HASH}->{$theGene})){
 		if (! exists $current_gene_pool{$theGene}){
-			$self->create_gene_file($theGene);
+			$self->create_gene_file($theGene); #UNDO
 		}
 		if (! exists $output_buffer->{$theGene}){
 	                @buff = ((3) x ($num_fields+scalar(@IDs)));
@@ -388,6 +388,7 @@ sub read_VCF_line{	#this sub performs a readline operation on those input vcf fi
 sub shatterVCF{		#main function which reads all input vcf files, extracts data in increasing order of SNPs and outputs all encrypted information gene-wise, in files named as geneXXX.vcf .
 
         my $self = shift;
+	my $curr_chr="0"; my $curr_pos="0";
 	my $OPbuffer={};	
 
 	$self->read_all_headers();
@@ -401,6 +402,13 @@ sub shatterVCF{		#main function which reads all input vcf files, extracts data i
 		my $this_chr = @{$aFile->{LINE}}[0];
 		my $this_pos = @{$aFile->{LINE}}[1];
 
+		if ((scalar keys %current_gene_pool)==0) { # if gene_pool is empty
+			$curr_chr= $this_chr ;
+		}
+		elsif ($curr_chr ne $this_chr){ # check for new chromosome, if so close all open geneXXX.vcf file handles in current gene pool
+			print "\nEncryption of $curr_chr complete\n";
+			$curr_chr= $this_chr ;
+		}
 		($OPbuffer)= $self->extractInfo($aFile);
 
 		foreach $otherFile(@input_file)  {
@@ -411,7 +419,7 @@ sub shatterVCF{		#main function which reads all input vcf files, extracts data i
 			}
 		}
 
-		$self->append_gene_file($OPbuffer);
+		$self->append_gene_file($OPbuffer); #UNDO
 		$self->append_VT_file($OPbuffer);
 
 		for (keys %$OPbuffer){            # empty the buffer after printing to files.
@@ -425,7 +433,7 @@ sub shatterVCF{		#main function which reads all input vcf files, extracts data i
 			}
 		}
 	}
-	$self->empty_gene_pool();
+	$self->empty_gene_pool(); #UNDO
 }#end-sub-shatterVCF
 
 sub write_pheno_file{		#prints the phenotypes of all individuals from all input vcf files, into a common Pheno.txt file
@@ -444,28 +452,34 @@ sub write_pheno_file{		#prints the phenotypes of all individuals from all input 
 
 sub write_VT_files {
 	my $self = shift;
-	my @gect = ((0) x $num_dirs);
+	my $complete = 0;
+	my $curr = 0;
+	my $cycle = 1000;
+	my @gect = ((0) x (3*$num_dirs));
+
+	for(my $rdir=0;$rdir<3*$num_dirs;$rdir++) {
+		system("mkdir -p $output_dir/VT/DIR_$rdir");
+	}
 	open Info, ">", "$output_dir"."/info.txt" or die "Can't open file info\n";
 	select((select(Info), $|=1)[0]);
-	for $gene ( sort keys %gene_table) {
-		my $random_number = int(rand($num_dirs));
-		my $gdir = "VT/DIR_$random_number/gene$gect[$random_number]";
+	for $gene ( keys %gene_table) {
+		my $random_number = int(rand(3*$num_dirs));
+		my $gdir = "VT/DIR_$random_number";#/gene$gect[$random_number]";
 		my $cdir = $output_dir."/".$gdir;
 
-		system("mkdir -p $cdir");
-		open Phenotypes, ">", "$cdir/data.pheno" or die "Cannot create phenotype file: $gdir/data.pheno\n";
-		open Genotypes, ">", "$cdir/data.geno" or die "Cannot create genotype file: $gdir/data.geno\n";
-		open Weights, ">", "$cdir/data.wt" or die "Cannot create weight file: $gdir/data.wt\n";
+		open Phenotypes, ">", "$cdir/gene$gect[$random_number].data.pheno" or die "Cannot create phenotype file: $cdir/gene$gect[$random_number].data.pheno\n";
+		open Genotypes, ">", "$cdir/gene$gect[$random_number].data.geno" or die "Cannot create genotype file: $cdir/gene$gect[$random_number].data.geno\n";
+		open Weights, ">", "$cdir/gene$gect[$random_number].data.wt" or die "Cannot create weight file: $cdir/gene$gect[$random_number].data.wt\n";
 	select((select(Phenotypes), $|=1)[0]);
 	select((select(Genotypes), $|=1)[0]);
 	select((select(Weights), $|=1)[0]);
 
-		#if (substr($gene, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
-		#my $gene_name = substr($gene, 3, length($gene));
-		print Info "$gdir\t$gene\n";
+		if (substr($gene, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
+		my $gene_name = substr($gene, 2);
+		print Info "$gdir/gene$gect[$random_number]\t$gene_name\n";
 
 		my %ID;
-		foreach $snp (sort keys %{$gene_table{$gene}}) {
+		foreach $snp (keys %{$gene_table{$gene}}) {
 			$snp =~s/\t/\\t/;
 			$snp =~s/\n/\\n/;
 
@@ -495,7 +509,13 @@ sub write_VT_files {
 		close Phenotypes;
 		close Genotypes;
 
+		$complete = 0;
 		$gect[$random_number]++;
+		$complete += $_ for @gect;
+		if($complete > $curr) {
+			print "$complete VT files written\n";
+			$curr += $cycle;
+		}
 	}
 	close Info;
 }
@@ -599,7 +619,7 @@ if (@ARGV > 0 ) {
 	$VCFobj->open_input_files($options->{CASE},$options->{CONTROL});
 	$VCFobj->shatterVCF();
 	$VCFobj->write_pheno_file();
-	$VCFobj->write_VT_files();
+	$VCFobj->write_VT_files(); #UNDO
 	$VCFobj->close_input_files();
 }
 

@@ -151,13 +151,19 @@ if ( @ARGV > 0 ) {
 		`rm -rf $src_dir`;
 		`mkdir -p $src_dir`;
 		chdir $src_dir or die "Cannot cd to $src_dir";
+		for (my $ct = 0; $ct < 300; $ct++) {
+			print "Waited $ct min\n";
+			sleep(60);
+		}
 		for(my $i=0;$i<$MAX_USERS;$i++) {
 			my $encryp_file = "$user_list[$i]";
 			my $term = readline $new_sock{$user_list[$i]};
 			chomp $term;
 			if($term ne "XXX") {die "XXX not received";}
+			print "Starting to read from user $i now\n";
 			$term = readline $new_sock{$user_list[$i]};
 			chomp $term;
+			print "$term bytes to read\n";
 			open ENCRYP_FILE, ">$encryp_file.tar.gz" or die "Can't open: $!";
 			my $n = 0;
 			binmode $new_sock{$user_list[$i]};my $part = "";
@@ -179,7 +185,6 @@ if ( @ARGV > 0 ) {
 		print "Encrypted files received. Starting merge\n";
 
 		$dest_dir = "assoc_output";
-#		#$dest_dir=~s/\/$//;
 		`rm -rf $dest_dir`;
 		`mkdir -p $dest_dir`;
 		my @arguments = ("perl", $MERGE,
@@ -192,7 +197,22 @@ if ( @ARGV > 0 ) {
 				"-out", "Scores.txt",
 				"-dir", $dest_dir,
 				"-info", $dest_dir."/info.txt");
-		if(system(@arguments)!=0) {die "Association testing failed\n";}
+		my $qsub1 = "#!/bin/sh";
+		my $qsub2 = "#$ -S /bin/sh";
+		my $qsub3 = "#$ -cwd";
+		my $qsubfile = "assoc.sh";
+
+		open Qsub, ">$qsubfile" or die "Cannot open $qsubfile\n";
+		`chmod 777 $qsubfile`;
+		print Qsub $qsub1;
+		print Qsub $qsub2;
+		print Qsub $qsub3;
+		print Qsub "\n";
+		print Qsub @arguments;
+		close Qsub;
+
+		my @qsubcom = ("qsub", "-sync", "y", "-l", "mem=16G,time=16::", "$qsubfile");
+		if(system(@qsubcom)!=0) {die "Association testing failed\n";}
 		print "\n\nAssociation Testing Successful.\n\n";
 
 		unlink("Scores.txt.tar"); 
