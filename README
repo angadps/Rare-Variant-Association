@@ -1,0 +1,264 @@
+########################################################################################################
+########################################################################################################
+#
+#  Encryption tool to run association testing on collaborated data
+#
+########################################################################################################
+########################################################################################################
+
+We have developed a tool which performs meta-analysis of sequencing based association studies on collaborative data from multiple investigators.
+Keeping in mind the privacy of genetic information that is being gathered, we use public key security paradigm to encrypt the data; following this association testing can be done and results can be decrypted by investigators.
+
+Given multiple collaborators (users), each user is required to register with their username and password. Following registration by all users, a public key is generated and shared with all users. Following this, processed-encrypted data is sent to a trusted third party (server from now on), for accumulating data and running the required analysis. In this way the raw allele name and count information does not leave the collaborators server. The results may be shared with all collaborators thereafter. These steps and format of input data are detailed below.
+
+
+##########################################################
+##
+##  Pre-requisites for running the application
+##
+##########################################################
+
+Pre-requisites:
+
+1. Download and Install vcfCodingSNPs as mentioned in http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/Installation.shtml
+	* Post installation, copy the "./vcfCodingSnps.v1.5" executable to the working directory for the client program.
+
+2. Download and Install the perl module Crypt.
+	* Module can be downloaded from http://search.cpan.org/~dparis/Crypt-DES-2.05/
+	* If crypt is installed in a directory say "/root/temp_lib" , then add this to the perl5lib environment variable as,
+		export PERL5LIB=$PERL5LIB:/root/temp_lib/lib64/perl5/site_perl/5.10.0/x86_64-linux-thread-multi/Crypt
+	* Outputs from encrypt.pl will be directed to the output directory specified by each user.
+
+########################################################
+##                                                    ##
+## 1. Input data format : VCF files    	              ##
+##                                                    ##
+########################################################
+
+It is necessary that the data (case or control) submitted by any user must be in Variant Call Format 4.0 (http://www.1000genomes.org/node/101) and have case and control samples in different VCF files. The VCF files must be valid VCF files. Validation of VCF files can be done using tools like vcftools_0.1.6 ( http://vcftools.sourceforge.net/perl_module.html ).
+
+########################################################
+##                                                    ##
+## 2. Output format		                      ##
+##                                                    ##
+########################################################
+
+The output is a flat file with encrypted gene names and their combined scores from the respective association testing. The same is also decrypted on the user side and available as a flat file with true gene names instead.
+
+########################################################
+##                                                    ##
+## 3. Basic working				      ##
+##                                                    ##
+########################################################
+
+Individual scripts run on each client while another coordinating script runs on the server. Before running any of the scripts, the server name needs to be communicated to the clients and set appropriately in their copy of the script as the variable $server_socket.
+
+The server and client are a coordinating set of programs communicating with each other using sockets. A randomly chosen socket, 7070 has been used in our programs. Once kicked in, the entire process from registration of the users and key generation to encryption and transfer of data to the server, processing of the same until decryption is performed. While there can be flexibility in when the users come in for registration, once complete the programs run until the end and some care must be taken for the respective consoles not to be killed.
+
+The server script (engine.pl) is first invoked in the following way:
+
+> perl engine.pl -run -weight<weight file>
+
+	-weight=<weight file>		a tab delimited file, with atleast one line, where each line has two columns , described below:
+			1st column = name of functional category (any categories that are handled by vcfCodingSNPs tools. A list of these can be seen at http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/Tutorial.shtml )
+			2nd column = a floating point weight between 0 and 1 that is to be assigned to the particular category.
+
+
+The client script (client.pl) is run on the different user machines next:
+
+> perl client.pl -genkey -user=<username> -pwd=<password> -gene_ref=<gene file> -ref=<reference genome> -cases=<set of case files> -controls=<set of control files> -out=<output directory>
+
+	-user=<username>			username as decided by the collaborator
+	-pwd=<password>				password as decided by the collaborator
+	-gene_ref<gene file>			the name of input gene file required by the annotation tool being used VCFCodingSnps, by default use a NCBI36 (hg19) version gene list file in UCSC known gene format (provided in the annotation tool package at geneLists/UCSCknownGene.B36.txt)
+	-ref=<reference genome>			the reference genome file, by default use the NCBI build 36 reference genome (provided in the annotation tool package at referenceGenomes/genome.V36.fa)
+	-cases=<set of case files>		valid VCF 4.0 format list of case files
+	-controls=<set of control files>	valid VCF 4.0 format list of control files
+	-out=<output directory>			valid output directory
+
+########################################################
+##                                                    ##
+## 3. Public Key Generation			      ##
+#	(I) User Registeration 			      ##
+##                                                    ##
+########################################################
+
+Main code file 
+	**  engine.pl/client.pl
+Supporting code file 
+	**  decidekey1.pl
+
+1. The first step to the key generation is the user registration. While the server script engine.pl is run first, each collaborating client script needs to be invoked next with the parameters mentioned above.
+2. Once all users have registered (the number of expected users is pre-determined and set in the engine.pl file as the $MAX_USERS parameter) the key generation process is kicked in by the server.
+
+########################################################
+##                                                    ##
+## 3. Public Key Generation			      ##
+#	(II) create public key 			      ##
+##                                                    ##
+########################################################
+
+Main code file
+	**  engine.pl/client.pl
+Supporting code file 
+	**  decidekey2.pl
+
+1. The key generation process happens in a round robin fashion among all users. Each user in the loop talks to one other user in the loop.
+2. The server randomly chooses a client to initiate the key generation process and sends it a message along with the client that it needs to talk to.
+3. Once the key generation is complete, all clients will have identical keys stored in a file named "key" in their working directories.
+
+
+########################################################
+##                                                    ##
+## 4. Data submission by user			      ##
+#	(I) Annotation of input VCF		      ##
+##                                                    ##
+########################################################
+
+Main code file
+	**  client.pl
+
+1. Input VCF files should be annotated by vcfCodingSNPS v1.5 ( http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/index.shtml ).
+2. Download and Install the vcfCodingSNPS v1.5 tool using steps indicated http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/Installation.shtml
+3. The tool requires a reference genome and a list of genes downloaded from the UCSC genome browser (http://genome.ucsc.edu/) for doing the annotation. Some reference genomes and gene lists for humans are available in the tool itself and maybe used drectly. The user may download other reference genomes and genelists as per their need. 
+	* Reference genome must be in fasta format
+	* Gene list must be in GenePred format (http://genome.ucsc.edu/FAQ/FAQformat#format9) described in brief;
+		The first11 fields of gene file are required tab delimited fields and must be put in the order as following:
+			1st	string	name			"Name of gene"
+			2nd	string	chrom			"Chromosome name"
+			3rd	char[1]	strand			"+ or - for strand"
+			4th	uint	txStart			"Transcription start position"
+			5th	uint	txEnd			"Transcription end position"
+			6th	uint	cdsStart		"Coding region start"
+			7th	uint	cdsEnd			"Coding region end"
+			8th	uint	exonCount		"Number of exons"
+			9th	uint[exonCount]	exonStarts	"Exon start positions"
+			10th	uint[exonCount]	exonEnds	"Exon end positions"
+			11th	string	gene symbol		"Standard gene symbol"
+		Note: the 11th field is a mandatory field for running vcfCodingSnps. 
+		
+		Here is an example of input gene file headlines:
+
+			##ucscname  chrom  strand  txStart  txEnd  cdsStart  cdsEnd  exonCount  exonStarts  exonEnds  genename
+			uc001aaa.2  chr1  +  1115  4121  1115  1115  3  1115,2475,3083, 2090,2584,4121,  BC032353
+			uc009vip.1  chr1  +  1115  4272  1115  1115  2  1115,2475,  2090,4272,  AX748260
+
+	* For detailed description of input files (vcf, referencegenome and gene list) to vcfCodingSNPS tool, refer to http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/inputs.shtml
+
+
+########################################################
+##                                                    ##
+## 4. Data submission by user			      ##
+#	(II) Encryption of Annotated VCFs	      ##
+##                                                    ##
+########################################################
+
+Main code file
+	**  client.pl
+Supporting code file 
+	**  encrypt.pl
+
+1. A user submits annotated vcf files for encryption.
+		An example weight file looks like "weights.txt" and is shown below. This contains the exhaustive list of categories=>
+			5'UTR	0.35
+			3'UTR   0.35
+			INTRONIC	0.1
+			SYNONYMOUS_CODING	0.15
+			NON_SYNONYMOUS_CODING	0.2
+			SPLICE_SITE	0.15
+			STOP_GAINED	0.02
+			STOP_LOST	0.03
+			UPSTREAM	0.2
+			DOWNSTREAM	0.2
+
+3. OUTPUT: The output directory will contain 
+	(1) A directory GENES -> this contains vcf files per gene encountered in all input vcf files cumulatively. Given the large number of genes expected and one file per gene that we create, these files are randomly distributed in multiple directories. A count of such directories can be set in the $num_dirs variable. The snp identity in these files is masked. The chromosome number and snp position is mapped in a 1X1 way using different numbers. The snp id is ignored. The reason not to encrypt chromosome numbers and snp positions is so that the output gene files can be used for association testing by any valid tool.
+	(2) GeneInfo.txt -> this tab-delimited file contains the name (encrypted) of all genes encountered along with the path to their vcf files (into the GENES directory)
+		Example:
+			@#%#&&!      output/GENES/DIR_4/GENE4.vcf
+			@$^@fdf      output/GENES/DIR_3/GENE3.vcf
+			@$^@3df      output/GENES/DIR_2/GENE2.vcf
+			@$^@8df      output/GENES/DIR_0/GENE0.vcf
+			@$^dsgf      output/GENES/DIR_1/GENE1.vcf
+			
+	(3) Pheno.txt -> This tab-delimited file contains all the samples IDs (encrypted) encoutered in all the input vcf files along with their phenotype ( 1 or -1) 
+		Example:
+
+			usera_control_YALE_exomes_20101228_s_4  -1
+			usera_control_YALE_exomes_20101215_s_3  -1
+			usera_case_YALE_exomes_20101208_s_1     1
+			usera_case_YALE_exomes_20101208_s_8     1
+
+	(4) A directory VT -> this contains VT format files for association testing. Each gene results in the generation of three files:
+		Example:
+
+			gene0.data.geno		file containing combined genotype information for that gene
+			gene0.data.pheno	file containing combined phenotype information for that gene
+			gene0.data.wt		file containing weights information for the combined list of snps found in that gene
+
+	(5) info.txt -> this tab-delimited file contains the name (encrypted) of all genes encountered along with the path to their VT files (into the VT directory)
+		Example:
+
+			@#%#&&!      output/VT/DIR_4/GENE4.vcf
+			@$^@fdf      output/VT/DIR_3/GENE3.vcf
+			@$^@3df      output/VT/DIR_2/GENE2.vcf
+			@$^@8df      output/VT/DIR_0/GENE0.vcf
+
+	NOTE: The encrypted names often contains non-printable characters which have been omitted from here for convenience sake. While the above two info files are tab-delimited, the tab cannot be used for determining when the gene name ends and has to be done reading a specific number of bytes. The program is written such that each gene name is encrypted into 8-bytes.
+
+Following this the files are put into a single tar file, zipped and sent to the server via the open socket where the server is waiting to receive them. Note that this may be a very time consuming step (taring of files taking maximum time).
+
+
+##########################################################
+##
+##  5. Merging of files
+##
+##########################################################
+
+Main code file
+	**  engine.pl
+Supporting code file 
+	**  mergeVtFiles.pl
+
+1. The server waits upon all clients to successfully encrypt and send their zipped files to the server. Once the server has received files from all clients, it sends a message back to them informing them about the same.
+2. The files are then merged based on the genes. Both the VCF files and VT files are merged into a single output directory retaining the same format as above.
+	
+
+##########################################################
+##
+##  Association analysis
+#
+##########################################################
+
+
+Main code file
+	** engine.pl
+Supporting code file
+	** runAssociation.pl/rareVariantTests.R
+
+1. The main task of association analysis is performed by the rareVariantTest.R file. This script implements the VT test for pooled association of rare variants with a phenotype. The script also includes implementations of T1, T5, and WE (Madsen-Browning) tests, optionally weighted with PolyPhen scores.
+2. The runAssociation.pl file reads the genotype/phenotype and weights file for each gene and obtains the combined association score for the same.
+3. Upon completion of all runs, the scores file is sent back to all clients with gene names still in encrypted format. A sample scores file is as:
+
+		@#%#&&!      0.345313
+		@$^@fdf      0.567334
+		@$^@3df      0.144572
+		@$^@8df      0.456134
+
+
+##########################################################
+##
+##  Decryption of results
+##
+##########################################################
+
+
+Main code file
+	** client.pl
+Supporting code file
+	** decryptScores.pl
+
+1. The scores file is received by the client and unzipped.
+2. The decryptScores.pl file then decrypts individual gene names and writes them into a tab-delimited file along with the respective scores.
+
+
