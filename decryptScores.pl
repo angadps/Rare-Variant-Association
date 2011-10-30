@@ -68,8 +68,13 @@ while(1) {
 	}
 	if($n == 0) {
 		die "No proper separator after $gene_name. Cannot map\n"; }
-	print scores "uc$gene\t$gene_name\n";  #decrypts the inputted file.
+	print scores "uc0$gene\t$gene_name\n";  #decrypts the inputted file.
 }
+
+close info;
+close key;
+close scores;
+
 
 
 #  while (1) {

@@ -30,7 +30,7 @@ my $localhost = hostname;
 
 my $receive_socket = new IO::Socket::INET (
                                 LocalHost => $localhost,
-                                LocalPort => '7070',
+                                LocalPort => '7090',
                                 Proto => 'tcp',
                                 Listen => 1,
                                 Reuse => 1,
@@ -100,7 +100,7 @@ if ( @ARGV > 0 ) {
 
 					my $ssend_socket = new IO::Socket::INET (
         					                 PeerAddr => $server,
-       						                 PeerPort => '7070',
+       						                 PeerPort => '7090',
        						                 Proto => 'tcp',
        					                         );
 					die "Could not create socket: $!\n" unless $ssend_socket;
@@ -148,12 +148,12 @@ if ( @ARGV > 0 ) {
 
 		print "\nWaiting for encrypted files now\n";
 		my $src_dir = "assoc_input";
-		`rm -rf $src_dir`;
-		`mkdir -p $src_dir`;
+		#`rm -rf $src_dir`; #UNDO
+		#`mkdir -p $src_dir`; #UNDO
 		chdir $src_dir or die "Cannot cd to $src_dir";
-		for (my $ct = 0; $ct < 300; $ct++) {
+		for (my $ct = 0; $ct < 0; $ct++) {
 			print "Waited $ct min\n";
-			sleep(60);
+			sleep(60); #UNDO
 		}
 		for(my $i=0;$i<$MAX_USERS;$i++) {
 			my $encryp_file = "$user_list[$i]";
@@ -175,9 +175,10 @@ if ( @ARGV > 0 ) {
 			close ENCRYP_FILE;
 
 			my @unzip = ("gunzip", "$encryp_file.tar.gz");
-			if(system(@unzip) !=0) {die "@unzip failed\n";}
-			@unzip = ("tar", "xf", "$encryp_file.tar");
-			if(system(@unzip) !=0) {die "@unzip failed\n";}
+			#if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
+			print "gunzip complete on user $i\n";
+			@unzip = ("tar", "-x", "--checkpoint=100", "-f", "$encryp_file.tar");
+			#if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
 
 			print "Encrypted files received from user $i\n";
 		}
@@ -185,21 +186,18 @@ if ( @ARGV > 0 ) {
 		print "Encrypted files received. Starting merge\n";
 
 		$dest_dir = "assoc_output";
-		`rm -rf $dest_dir`;
-		`mkdir -p $dest_dir`;
+		#`rm -rf $dest_dir`; #UNDO
+		#`mkdir -p $dest_dir`; #UNDO
 		my @arguments = ("perl", $MERGE,
 				"-src", $src_dir,
 				"-out", $dest_dir);
-		if(system(@arguments)!=0) {die "Merging failed\n";}
+		#if(system(@arguments)!=0) {die "Merging failed\n";} #UNDO
 		print "\n\nMerging Successful. Performing association testing now\n";
 
-		@arguments = ("perl", $ASSOC,  
-				"-out", "Scores.txt",
-				"-dir", $dest_dir,
-				"-info", $dest_dir."/info.txt");
-		my $qsub1 = "#!/bin/sh";
-		my $qsub2 = "#$ -S /bin/sh";
-		my $qsub3 = "#$ -cwd";
+		@arguments = ("perl $ASSOC -out Scores.txt -dir $dest_dir -info $dest_dir/info.txt");
+		my $qsub1 = "#!/bin/sh\n";
+		my $qsub2 = "#\$ -S /bin/sh\n";
+		my $qsub3 = "#\$ -cwd\n";
 		my $qsubfile = "assoc.sh";
 
 		open Qsub, ">$qsubfile" or die "Cannot open $qsubfile\n";
@@ -211,26 +209,27 @@ if ( @ARGV > 0 ) {
 		print Qsub @arguments;
 		close Qsub;
 
-		my @qsubcom = ("qsub", "-sync", "y", "-l", "mem=16G,time=16::", "$qsubfile");
+		my @qsubcom = ("qsub", "-sync", "y", "-l", "mem=4G,time=16::", "$qsubfile");
+		print(@qsubcom);
 		if(system(@qsubcom)!=0) {die "Association testing failed\n";}
 		print "\n\nAssociation Testing Successful.\n\n";
 
-		unlink("Scores.txt.tar"); 
-		unlink("Scores.txt.tar.gz");
-		my @zip = ("tar", "-cf", "Scores.txt.tar", "Scores.txt");
-		if(system(@zip)!=0) {die "@zip failed\n";}
-		@zip = ("gzip", "Scores.txt.tar");
-		if(system(@zip)!=0) {die "gzip Scores.txt.tar failed\n";}
+#		unlink("Scores.txt.tar"); 
+#		unlink("Scores.txt.tar.gz");
+#		my @zip = ("tar", "-cf", "Scores.txt.tar", "Scores.txt");
+#		if(system(@zip)!=0) {die "@zip failed\n";}
+#		@zip = ("gzip", "Scores.txt.tar");
+#		if(system(@zip)!=0) {die "gzip Scores.txt.tar failed\n";}
 		print "Sending score files now\n";
 
 		for(my $i=0;$i<$MAX_USERS;$i++) {
 			my $client = $send_socket{$user_list[$i]};
 			my $term = "XXX\n";
 			print $client $term;
-			my $filesize = -s "Scores.txt.tar.gz";
+			my $filesize = -s "Scores.txt";
 			$filesize = $filesize."\n";
 			print $client $filesize;
-			open SCORE_FILE, "Scores.txt.tar.gz" or die "Cannot open Scores.txt.tar.gz";
+			open SCORE_FILE, "Scores.txt" or die "Cannot open Scores.txt";
 			while (<SCORE_FILE>) {
 			    	print $client $_;
 			}

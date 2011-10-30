@@ -29,18 +29,36 @@ $num = scalar(@dir_list);
 my %h; #The hash of gene names found in the first directory
 
 for (my $it=0; $it < $num; $it++) {
-	open(info, "$dir_list[$it]"."/info.txt");
-	while(<info>) {
-		$line = $_;
-		chomp $line;
-		@a = split(/\t/, $line);
-		if(!exists($h{$a[1]}{$it})){
-			$h{$a[1]}{$it}=$a[0];  #a gene name maps to its numbered directory in dir1
+open(info, "$dir_list[$it]"."/info.txt");
+    while(1) {
+        binmode info; my $gene_name = "";
+        if(($n = read info, $gene_name, 8)!=8) {
+                if($n == 0) {last;}
+                else { die "Gene name not in required format\n";}
+	}
+        my $sep = "";
+        if(($n = read info, $sep, 1)!=1) {
+                die "No proper separator after $gene_name. Cannot map\n"; }
+	chomp $sep;
+        if(!($sep eq "	")) {
+                die "No proper tab separator after $gene_name. Cannot map\n"; }
+
+        my $s = "";my $i = 0;my @gene = "";
+        while(($n = read info, $s, 1)!=0) {
+                if($s ne "\n") {
+                        $gene[$i++] = $s;
+                } else { last;}
+        }
+        if($n == 0) {
+                die "No proper separator after @gene. Cannot map\n"; }
+	my $gene_loc = join('', @gene);
+		if(!exists($h{$gene_name}{$it})){
+			$h{$gene_name}{$it}=$gene_loc;  #a gene name maps to its numbered directory in dir1
 		} else {
 			print "Why are there duplicate genes in your info file?!\n"; #there should not be duplicates
 		}
-	}
-	close info;
+}
+close info;
 }
 
 my @geneCount = ((0) x $num_dirs);
@@ -50,11 +68,18 @@ for(my $rdir=0;$rdir<$num_dirs;$rdir++) {
 	system("mkdir -p $output/DIR_$rdir");
 }
 
+my $complete = 0;
+my $thresh = 0;
 foreach $Gene (sort keys %h){
 	if(scalar(keys(%{$h{$Gene}}))==1){
 		formatFiles($h{$Gene}); 
 	} else {
 		mergeFiles($h{$Gene});  #merge the files
+	}
+	$complete ++;
+	if($complete > $thresh) {
+		print "Merging $complete complete\n";
+		$thresh+= 1000;
 	}
 }
 close infoOut;
@@ -73,7 +98,7 @@ sub formatFiles{
 	$geneCount[$random_number]++;
 	my $output_dir = $output."/DIR_$random_number/gene".$geneCount[$random_number];
 
-	print infoOut "$output_dir\t$Gene\n";
+	print infoOut "$Gene\t$output_dir\n";
 
 	#if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
 	#else { `rm -rf $output_dir/*`;}
@@ -139,10 +164,10 @@ sub mergeFiles{
 	$geneCount[$random_number]++;
 	my $output_dir = $output."/DIR_$random_number/gene".$geneCount[$random_number];
 
-	print infoOut "$output_dir\t$Gene\n";
+	print infoOut "$Gene\t$output_dir\n";
 
-	if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
-	else { `rm -rf $output_dir/*`;}
+	#if (! -d $output_dir) { system("mkdir -p $output_dir"); }#, 0777; chmod 0777, $output_dir;
+	#else { `rm -rf $output_dir/*`;}
 	open genotypeOut, ">", "$output_dir.data.geno" or die "help!3";
 	open phenotypeOut, ">", "$output_dir.data.pheno" or die "help!6";
 	open weightsOut, ">", "$output_dir.data.wt" or die "help!9";

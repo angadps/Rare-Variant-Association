@@ -6,7 +6,6 @@ use Switch;
 use File::Spec;
 use IO::Socket;
 use Sys::Hostname;
-#  All things marked with TODO are to incomplete or need modifications.
 
 eval 'exec /usr/bin/perl -x $0 ${1+"$@"};'
 if 0;
@@ -22,7 +21,7 @@ my $ANNOTATE = "./vcfCodingSnps.v1.5";
 
 my $receive_socket = new IO::Socket::INET (
 				LocalHost => $localhost, 
-				LocalPort => '7070', 
+				LocalPort => '7090', 
 				Proto => 'tcp', 
 				Listen => 1, 
 				Reuse => 1, 
@@ -86,9 +85,16 @@ if ( @ARGV > 0 ) {
 		if($username eq "" || $password eq "") {die "Username not provided\n"};
 
 		my $len = 32;
+
+#########################################
+#					#
+# Server name needs to be set here!!!	#
+#					#
+#########################################
+
 my $server_socket = new IO::Socket::INET (
-				PeerAddr => 'b1a.c0.titan',
-				PeerPort => '7070',
+				PeerAddr => 'login2.titan',
+				PeerPort => '7090',
 				Proto => 'tcp',
 				);
 die "Could not create server socket: $!\n" unless $server_socket;
@@ -150,6 +156,24 @@ die "Could not create server socket: $!\n" unless $server_socket;
 			}
 			@part1 = join('', @part);
 			print "Partkey received for initiation\n";
+			my $sep = "";
+			#if (((read $new_sock, $sep, 1) == 1)&&($sep eq "\n")) {
+			#} else {
+			#	print $server_socket "0\t$localhost";
+			#	die "No proper separator before weights file\n";
+			#}
+			my $mylen = readline $new_sock;
+			chomp $mylen;
+			print "Reading $mylen bytes\n";
+			if(open(Wt, ">", $weightfile)==0) {
+				print $server_socket "0\t$localhost";
+				die "Cannot open $weightfile\n";}
+			for($i=0;$i<$mylen;$i++) {
+				read $new_sock, $sep, 1;
+				print Wt $sep;
+			}
+			close(Wt);
+			print "Weights file received\n";
 		}
 
 		@arguments = ("perl", $GENKEY); # calls encrypt.pl script
@@ -171,7 +195,7 @@ die "Could not create server socket: $!\n" unless $server_socket;
 		sleep(1);
 my $send_socket = new IO::Socket::INET (
 				PeerAddr => $next_host,
-				PeerPort => '7070',
+				PeerPort => '7090',
 				Proto => 'tcp',
 				);
 if(!$send_socket) {
@@ -180,9 +204,33 @@ die "Could not create send socket: $!\n"; }
 		foreach(@send_key){
 			print $send_socket $_;}
 		print "Partkey sent\n";
+			my $flen = -s $weightfile;
+			$flen.= "\n";
+			print $send_socket $flen;
+			if(open(Wt, "<", $weightfile) == 0) {
+				print $server_socket "0\t$localhost";
+				die "Cannot open weights file\n"; }
+			while(<Wt>) {
+				print $send_socket $_;
+			}
+			close(Wt);
+			print "Weights file sent\n";
 		if($FIRST == 1)
 		{
 			$new_sock = $receive_socket->accept();
+			my $sep = "";
+			#if (((read $new_sock, $sep, 1) == 1)&&($sep eq "\n")) {
+			#} else {
+			#	print $server_socket "0\t$localhost";
+			#	die "No proper separator before weights file\n";
+			#}
+			my $mylen = readline $new_sock;
+			chomp $mylen;
+			print "Reading $mylen bytes\n";
+			for($i=0;$i<$mylen;$i++) {
+				read $new_sock, $sep, 1;
+			}
+			print "Weights file received\n";
 		}
 		my @final_key = "";$i=0;
 			binmode $new_sock;my @part = "";
@@ -221,7 +269,7 @@ die "Could not create send socket: $!\n"; }
 		print "\nBeginning annotation for $cases[$cai]. It may be a while so please be patient\n";
 		my @annot = ($ANNOTATE, "-s", $cases[$cai], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE[$cai-1], "-l", $CASE_GENE_LIST[$cai-1]);
 		print(@annot);
-		system(@annot) or die "Annot case failed\n"; #UNDO
+		#system(@annot) or die "Annot case failed\n"; #UNDO
 		`cat $CASE_GENE_LIST[$cai-1] >> $temp_file`;
 		print "\n\nAnnotation complete for $cases[$cai]\n";
 	}
@@ -233,13 +281,13 @@ die "Could not create send socket: $!\n"; }
 		$CONTROL_GENE_LIST[$coi-1] = $gene_ref.".control".$coi;
 		print "\nBeginning annotation for $controls[$coi]. It may be a while so please be patient\n";
 		my @annot = ($ANNOTATE, "-s", $controls[$coi], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL[$coi-1], "-l", $CONTROL_GENE_LIST[$coi-1]);
-		system(@annot) or die "Annot control failed\n"; #UNDO
+		#system(@annot) or die "Annot control failed\n"; #UNDO
 		`cat $CONTROL_GENE_LIST[$coi-1] >> $temp_file`;
 		print "\n\nAnnotation complete for $controls[$coi]\n";
 	}
 
-		`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
-		`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
+		#`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
+		#`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
 		unlink($temp_file);
 
 		##### Submit annotated files for encryption, public key, username, genelist (same as that used in annotation) and weights files MUST be provided.
@@ -261,16 +309,16 @@ die "Could not create send socket: $!\n"; }
  		if ($weightfile eq "") {die "weightfile not provided\n";}
                       else  { @arguments = (@arguments, "-weight", $weightfile);}
 print "Encryption command: @arguments\n";
-		if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
+		#if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
 		print "\n\nEncryption Successful. Sending data to server for association testing.\n";
 
 		unlink("$username.tar");
-		my @zip = ("tar", "-c", "--checkpoint=100", "-f", "$username.tar", $output);
-		if(system(@zip)!=0){die "@zip failed\n";}
+		my @zip = ("tar", "-c", "--checkpoint=1000", "-f", "$username.tar", $output);
+		#if(system(@zip)!=0){die "@zip failed\n";} #UNDO
 		print "File tar complete\n";
 		unlink("$username.tar.gz");
 		@zip = ("gzip", "$username.tar");
-		if(system(@zip)!=0){die "@zip failed\n";}
+		#if(system(@zip)!=0){die "@zip failed\n";} #UNDO
 		print "File zip complete\n";
 
 		my $term = "XXX\n";
@@ -287,6 +335,10 @@ print "Encryption command: @arguments\n";
 		close ZIP_FILE;
 		print "Data sent. Waiting for Scores file!\n";
 
+		for (my $ct = 0; $ct < 0; $ct++) {
+			print "Waited $ct min\n";
+			sleep(60); #UNDO
+		}
 		my $part = "";
 		$n = read $ser_sock, $term, 4;
 		chomp $term;
@@ -295,8 +347,8 @@ print "Encryption command: @arguments\n";
 		chomp $term;
 
 		my $score_file = "Score_$username.txt";
-		unlink("$score_file.tar.gz");
-		open SCORE_FILE, ">$score_file.tar.gz" or die "Can't open: $!";
+		unlink($score_file);
+		open SCORE_FILE, ">", $score_file or die "Can't open: $!";
 		$n = 0;
 		binmode $ser_sock;$part = "";
 		for(my $j=0;$j<$term;$j++) {
@@ -308,16 +360,16 @@ print "Encryption command: @arguments\n";
 		close SCORE_FILE;
 		print "Scores file received. Decrypting...\n";
 
-		unlink("$score_file.tar");
-		@zip = ("gunzip", "$score_file.tar.gz");
-		if(system(@zip)!=0){die "@zip failed\n";}
-		unlink($score_file);
-		@zip = ("tar", "-x", "--checkpoint=1000", "-f", "$score_file.tar");
-		if(system(@zip)!=0){die "@zip failed\n";}
+#		unlink("$score_file.tar");
+#		@zip = ("gunzip", "$score_file.tar.gz");
+#		if(system(@zip)!=0){die "@zip failed\n";}
+#		unlink($score_file);
+#		@zip = ("tar", "-x", "--checkpoint=1000", "-f", "$score_file.tar");
+#		if(system(@zip)!=0){die "@zip failed\n";}
 
 		@arguments = ("perl",$DECRYPT,  # "/ifs/scratch/c2b2/ip_lab/sz2317/privacy/workingdir/decryptScores.pl",
 				"-keyfile", $key,
-				"-out", "Score.txt",
+				"-out", "Scores.txt",
 				"-scores", $score_file);
 		`@arguments`;
 		print "\n\nDecryption Successful\n";

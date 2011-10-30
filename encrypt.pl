@@ -42,6 +42,9 @@ use POSIX qw/floor/;
 	my @IDs=();			# Array of Individuals IDs filled while reading headers of all input vcf files
 	my %IDhash=();			# Hash with key=> Individual ID, Value=> Phenotype 
 	my @header=();			# Common header to be printed to new vcf files.
+	my %od_table=();
+	my $od_count = 0;
+	my $chr_count = 0;
 
 
 sub new {       	#subroutine to create new object. Paramters set are 'user' reference and 'gene' reference
@@ -93,6 +96,34 @@ sub close_input_files
 	foreach $file (@input_file) {
 		close($file->{HANDLE});
 	}
+}
+
+sub code
+{
+	my $self = shift;
+	my $raw = shift;
+	my $typ = shift;
+	my $append = shift;
+	my $ret = "";
+
+if($typ == 2) {
+	if(exists($od_table{$raw})) {
+		$ret = $od_table{$raw};
+	} else {
+		$od_count++;
+		$od_table{$raw} = $od_count;
+		$ret = $od_count;
+	}
+} elsif($typ == 1) {
+	if(exists($od_chr{$raw})) {
+		$ret = $od_chr{$raw};
+	} else {
+		$chr_count++;
+		$od_chr{$raw} = $chr_count;
+		$ret = $chr_count;
+	}
+}
+	return $ret.$append;
 }
 
 sub LHSinfo($) {  	# extract the LHS of a function-gene tuple from info field, i.e. - functional name
@@ -205,10 +236,10 @@ sub empty_gene_pool{ 		#subroutine to close a geneXXX.vcf file, print the gene f
 	open FH_info, ">".$output_dir."/".$gene_out_file or die "Cannot open file $output_dir/$gene_out_file";
 	select((select(FH_info), $|=1)[0]);
 	for $name_key ( keys %current_gene_pool ) {
-		if (substr($name_key, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
-		my $gene_name = substr($name_key, 2);
-		#print FH_info  $user->{CIPHER}->encrypt($gene_name)."\t".$current_gene_pool{$name_key}[0]."\n";   #Update GeneInfo.txt with Gene name(encrypted) & its path on system
-		print FH_info  $gene_name."\t".$current_gene_pool{$name_key}[0]."\n";   #Update GeneInfo.txt with Gene name(encrypted) & its path on system
+		if (substr($name_key, 0, 3) ne "uc0") { die "gene name not in ucsc format\n";}
+		my $gene_name = substr($name_key, 3);
+		print FH_info  $user->{CIPHER}->encrypt($gene_name)."\t".$current_gene_pool{$name_key}[0]."\n";   #Encrypted
+		#print FH_info  $gene_name."\t".$current_gene_pool{$name_key}[0]."\n";
 	}
 	close FH_info;
 	for (keys %current_gene_pool){		  # completely empty %current_gene_pool
@@ -224,12 +255,15 @@ sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file.
         open($temp_handle, ">>", $current_gene_pool{$_}[0]) or die "Cannot open handle to append";
 	select((select($temp_handle), $|=1)[0]);
 		my @arr = @{$buffer->{$_}};
-		#my $string = $user->{CIPHER}->encrypt($arr[0]) ."\t";
-                my $string = $arr[0]."\t";
+		my $string = $self->code($arr[0],1,"\t"); #Encrypted
+		#my $string = $user->{CIPHER}->encrypt($arr[0]) ."\t";#Encrypted
+                #my $string = $arr[0]."\t";
+                $string.= $self->code($arr[1]-$master_gene->{GENE_HASH}->{$_},2,"\t");
 		#$string.= $user->{CIPHER}->encrypt( $arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
+       	        #$string.= ($arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
+		#$string.= $arr[2]  ."\t";
 		#$string.= $user->{CIPHER}->encrypt( $arr[2] ) ."\t";
-       	        $string.= ($arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
-		$string.= $arr[2]  ."\t";
+		$string.= ".\t"; # Encrypted
 	 	$string .= join ("\t", @arr[3.. 8]);
 		for (my $it=9; $it < scalar(@arr); $it++) {
 			if ($arr[$it] == 3) {
@@ -252,12 +286,19 @@ sub append_VT_file {
 		my $gene = $_;
 		my @arr = @{$buf->{$_}};
 		my $snp = $arr[0].':'.($arr[1] - $master_gene->{GENE_HASH}->{$_});
+		my $wt = $arr[7];
+		if(!exists($gene_table{$gene}{$snp}->{WEIGHT})) {
+			$gene_table{$gene}{$snp}->{WEIGHT} = $wt;
+		} else {
+			if($wt > $gene_table{$gene}{$snp}->{WEIGHT}) {
+				$gene_table{$gene}{$snp}->{WEIGHT} = $wt;
+			}
+		}
 		my @IDlist = @arr[9.. ((scalar @arr )-1) ];
 		for(my $i=0;$i<(scalar(@IDlist));$i++){
-			if($IDlist[$i] != 3){
-				my $str = $IDs[$i]."\t".$IDlist[$i];
-				push @{ $gene_table{$gene}{$snp}}, $str;
-			}
+			$gene_table{$gene}{$snp}{$IDs[$i]} = $IDlist[$i];
+		#	my $str = $IDs[$i]."\t".$IDlist[$i];
+		#	push @{ $gene_table{$gene}{$snp}}, $str;
 		} #end for
 	}
 }
@@ -314,8 +355,8 @@ sub extractInfo {		#arguments - $object_ref (discarded), $file handle
 			$self->create_gene_file($theGene); #UNDO
 		}
 		if (! exists $output_buffer->{$theGene}){
-	                @buff = ((3) x ($num_fields+scalar(@IDs)));
-			@buff[0..6] = @line[0..6];
+	                @buff = ((0) x ($num_fields+scalar(@IDs)));
+			@buff[0 .. 6] = @line[0 .. 6];
 			$buff[7] = $master_gene->{WEIGHTS}->{$functionName};
 			$buff[8] = "GT";
 			@buff[ ($num_fields + $aFile->{ID_START}) .. ($num_fields + $aFile->{ID_END} -1) ] = @IDdata;
@@ -323,6 +364,8 @@ sub extractInfo {		#arguments - $object_ref (discarded), $file handle
 			@{$output_buffer->{$theGene}} = @buff;
 			undef @buff;
 		}
+		# REVISIT:
+		# Here I seem to be overriding with the SNP type that has maximum weight instead of collating it. Do I need to do this for update_op_buffer as well?
 		else {
 	                if($output_buffer->{$theGene}[7] < $master_gene->{WEIGHTS}->{$functionName} ) {
 	                        $output_buffer->{$theGene}[7] = $master_gene->{WEIGHTS}->{$functionName};
@@ -474,31 +517,42 @@ sub write_VT_files {
 	select((select(Genotypes), $|=1)[0]);
 	select((select(Weights), $|=1)[0]);
 
-		if (substr($gene, 0, 2) ne "uc") { die "gene name not in ucsc format\n";}
-		my $gene_name = substr($gene, 2);
-		print Info "$gdir/gene$gect[$random_number]\t$gene_name\n";
+		if (substr($gene, 0, 3) ne "uc0") { die "gene name not in ucsc format\n";}
+		my $gene_name = substr($gene, 3);
+		#print Info "$gdir/gene$gect[$random_number]\t$gene_name\n";
+		print Info $user->{CIPHER}->encrypt($gene_name)."\t$gdir/gene$gect[$random_number]\n"; #Encrypted
 
 		my %ID;
-		foreach $snp (keys %{$gene_table{$gene}}) {
-			$snp =~s/\t/\\t/;
-			$snp =~s/\n/\\n/;
+		foreach $snps (keys %{$gene_table{$gene}}) {
+			$snps =~s/\t/\\t/;
+			$snps =~s/\n/\\n/;
+			@snp = split(/:/,$snps);
 
-			print Weights "$snp\t0.5\n";
+			my $wt = $self->code($snp[0],1,":");
+			$wt.= $self->code($snp[1],2,"\t");
+			$wt.= $gene_table{$gene}{$snps}->{WEIGHT};
+			print Weights $wt."\n";
 
-			foreach $ind (@{$gene_table{$gene}{$snp}}) {
-				my @array = split(/\t/,$ind);
-	                	my $patient = $array[0];
+			#foreach $ind (@{$gene_table{$gene}{$snps}}) {
+			foreach $ind (keys %{$gene_table{$gene}{$snps}}) {
+				#my @array = split(/\t/,$ind);
+	                	#my $patient = $array[0];
+	                	#my $geno = $array[1];
+	                	if($ind eq "WEIGHT") { next;}
+	                	my $patient = $ind;
+				my $geno = $gene_table{$gene}{$snps}->{$ind};
         	        	$patient =~s/\t/\\t/;
                 		$patient =~s/\n/\\n/;
 
-	                	print Genotypes "$patient\t$snp\t$array[1]\n";###########
-
+				my $gt = $self->code($snp[0],1,":");
+				$gt.= $self->code($snp[1],2,"\t");
+	                	print Genotypes "$patient\t$gt$geno\n";
 	                	if(!exists($ID{$patient})){
 
-	                		if($array[0]=~/control/){
-        	        			print Phenotypes "$patient\t-1\n"; ###############
-                			} elsif($array[0]=~/case/) {
-                				print Phenotypes "$patient\t1\n"; ##################
+	                		if($patient=~/control/){
+        	        			print Phenotypes "$patient\t-1\n";
+                			} elsif($patient=~/case/) {
+                				print Phenotypes "$patient\t1\n";
                 			}
                         		$ID{$patient}=1;
                 		}

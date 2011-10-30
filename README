@@ -57,16 +57,12 @@ The server and client are a coordinating set of programs communicating with each
 
 The server script (engine.pl) is first invoked in the following way:
 
-> perl engine.pl -run -weight<weight file>
-
-	-weight=<weight file>		a tab delimited file, with atleast one line, where each line has two columns , described below:
-			1st column = name of functional category (any categories that are handled by vcfCodingSNPs tools. A list of these can be seen at http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/Tutorial.shtml )
-			2nd column = a floating point weight between 0 and 1 that is to be assigned to the particular category.
+> perl engine.pl -run
 
 
 The client script (client.pl) is run on the different user machines next:
 
-> perl client.pl -genkey -user=<username> -pwd=<password> -gene_ref=<gene file> -ref=<reference genome> -cases=<set of case files> -controls=<set of control files> -out=<output directory>
+> perl client.pl -genkey -user=<username> -pwd=<password> -gene_ref=<gene file> -ref=<reference genome> -cases=<set of case files> -controls=<set of control files> -weight=<weightfile> -out=<output directory>
 
 	-user=<username>			username as decided by the collaborator
 	-pwd=<password>				password as decided by the collaborator
@@ -74,7 +70,14 @@ The client script (client.pl) is run on the different user machines next:
 	-ref=<reference genome>			the reference genome file, by default use the NCBI build 36 reference genome (provided in the annotation tool package at referenceGenomes/genome.V36.fa)
 	-cases=<set of case files>		valid VCF 4.0 format list of case files
 	-controls=<set of control files>	valid VCF 4.0 format list of control files
+	-weight=<weight file>			a tab delimited file, with atleast one line, where each line has two columns , described below:
+							1st column = name of functional category (any categories that are handled by vcfCodingSNPs tools. A list of these can be seen at http://www.sph.umich.edu/csg/liyanmin/vcfCodingSnps/Tutorial.shtml )
+							2nd column = a floating point weight between 0 and 1 that is to be assigned to the particular category.
 	-out=<output directory>			valid output directory
+
+
+It is important to note how the weight file is chosen here. During encryption, a consensus needs to be there on the assigned weights to each mutatation type. It is assumed that such a consensus has been arrived at via formal discussion or other mechanism and each user has an identical weights file. In order to ensure that, during the key generation trigger process, the first user to prepare a part key is made to share his copy of the weights file in a similar round robin manner as the key. Thus the weights file for other users is overwritten so each user has the same copy.
+
 
 ########################################################
 ##                                                    ##
@@ -114,6 +117,8 @@ Supporting code file
 #	(I) Annotation of input VCF		      ##
 ##                                                    ##
 ########################################################
+
+NOTE: This part of the document is largely adapted from the original documentation of the VCFCodingSnps tool. Please refer the same for more details.
 
 Main code file
 	**  client.pl
