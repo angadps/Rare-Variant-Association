@@ -58,8 +58,9 @@ while(1) {
 	#my $gene_loc = $dir;
 	my $gene_loc = join('', @gene);
 	
+print $gene_loc
 
-$output = `/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/R/R-2.13.2/bin/Rscript --slave rareVariantTests.R -p 1 -n 0 -a "$gene_loc.data.pheno" -b "$gene_loc.data.wt" -c "$gene_loc.data.geno"`;
+$output = `/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/R/R-2.13.2/bin/Rscript --slave rareVariantTests.R -p 100000 -n 0 -a "$gene_loc.data.pheno" -b "$gene_loc.data.wt" -c "$gene_loc.data.geno"`;
 #$output = `/nfs/apps/R/2.9.0/bin/Rscript --slave /ifs/scratch/c2b2/ip_lab/reb2143/rareVariantTests.R -p 100000 -n 0 -a $dir/gene$i/data.pheno -b $dir/gene$i/data.wt -c $dir/gene$i/data.geno`;
 
 	$complete ++;

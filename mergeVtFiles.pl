@@ -67,7 +67,7 @@ open infoOut, ">", "$output"."/info.txt";  #creates a new info file mapping the 
 for(my $rdir=0;$rdir<$num_dirs;$rdir++) {
 	system("mkdir -p $output/DIR_$rdir");
 }
-
+#print scalar(keys %h);
 my $complete = 0;
 my $thresh = 0;
 foreach $Gene (sort keys %h){
@@ -85,9 +85,10 @@ foreach $Gene (sort keys %h){
 close infoOut;
 
 sub formatFiles{
-	my $par = shift;
-	my $index;
-	foreach $ind (keys %{$par}) { $index = $ind; }
+#print "Format\n";
+my $par = shift;
+foreach $ind (keys %{$par}) { 
+	my $index = $ind;
 	my $dir = $dir_list[$index];
 	my $filenum = $par->{$index};
 	my %position; #hash of the encrypted positions
@@ -107,11 +108,11 @@ sub formatFiles{
 	open phenotypeOut, ">", "$output_dir.data.pheno" or die "help!6";
 	open weightsOut, ">", "$output_dir.data.wt" or die "help!9";
  
-	open genotypeIn, "$dir/$filename.data.geno";
-	open phenotypeIn, "$dir/$filename.data.pheno";
-	open weightsIN, "$dir/$filename.data.wt";
+	open genotypeIn, "$dir/$filenum.data.geno";
+	open phenotypeIn, "$dir/$filenum.data.pheno";
+	open weightsIn, "$dir/$filenum.data.wt";
 
-	while(<weightsIN>){ #this is the polyphen weight file which is: encryptedposition\tscore
+	while(<weightsIn>){ #this is the polyphen weight file which is: encryptedposition\tscore
 		my $line = $_;
 		chomp $line;
 		my @a = split(/\t/,$line);
@@ -157,8 +158,10 @@ sub formatFiles{
 	close weightsIn;
 	close weightsOut;
 }
+}
 
 sub mergeFiles{
+#print "Merge\n";
 	my $par = shift;
 	my $random_number = int(rand($num_dirs));
 	$geneCount[$random_number]++;
@@ -173,17 +176,17 @@ sub mergeFiles{
 	open weightsOut, ">", "$output_dir.data.wt" or die "help!9";
 		my %position;
 		my $snvCount=0;
+		my $indCount =0;
 
 	foreach $ind (keys %{$par}) {
 		my $index = $ind;
 		my $dir = $dir_list[$index];
-		my $filename = $par->{$index};
+		my $filenum = $par->{$index};
 		my %person;
-		my $indCount =0;
 
-		open genotypeIn, "$dir/$filename.data.geno" or die "help!1";
-		open phenotypeIn, "$dir/$filename.data.pheno" or die "help!4";
-		open weightsIn, "$dir/$filename.data.wt" or die "help!7";
+		open genotypeIn, "<", "$dir/$filenum.data.geno" or die "help!1";
+		open phenotypeIn, "<", "$dir/$filenum.data.pheno" or die "help!4";
+		open weightsIn, "<", "$dir/$filenum.data.wt" or die "help!7";
 
 		#This is the same in the formatFiles subfunction
 		while(<weightsIn>){

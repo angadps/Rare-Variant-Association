@@ -28,7 +28,7 @@ use POSIX qw/floor/;
 	my $phenotype_file="Pheno.txt";
 	my $num_dirs=10;
 
-	my %chr_map = ("1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5, "6" => 6, "7" => 7, "8" => 8, "9" => 9, "10"=> 10, "11" => 11, "12" => 12, "13" => 13, "14" => 14, "15" => 15, "16" => 16, "17" => 17, "18" => 18, "19" => 19, "20" => 20, "21" => 21, "22" => 22, "X" => 23, "Y" => 24, "M" => 25, "chr1" => 1, "chr2" => 2, "chr3" => 3, "chr4" => 4, "chr5" => 5, "chr6" => 6, "chr7" => 7, "chr8" => 8, "chr9" => 9, "chr10"=> 10, "chr11" => 11, "chr12" => 12, "chr13" => 13, "chr14" => 14, "chr15" => 15, "chr16" => 16, "chr17" => 17, "chr18" => 18, "chr19" => 19, "chr20" => 20, "chr21" => 21, "chr22" => 22, "chrX" => 23, "chrY" => 24, "chrM" => 25);
+	my %chr_map = ("1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5, "6" => 6, "7" => 7, "8" => 8, "9" => 9, "10"=> 10, "11" => 11, "12" => 12, "13" => 13, "14" => 14, "15" => 15, "16" => 16, "17" => 17, "18" => 18, "19" => 19, "20" => 20, "21" => 21, "22" => 22, "23" => 23, "X" => 23, "Y" => 24, "M" => 25, "chr1" => 1, "chr2" => 2, "chr3" => 3, "chr4" => 4, "chr5" => 5, "chr6" => 6, "chr7" => 7, "chr8" => 8, "chr9" => 9, "chr10"=> 10, "chr11" => 11, "chr12" => 12, "chr13" => 13, "chr14" => 14, "chr15" => 15, "chr16" => 16, "chr17" => 17, "chr18" => 18, "chr19" => 19, "chr20" => 20, "chr21" => 21, "chr22" => 22, "chr23" => 23, "chrX" => 23, "chrY" => 24, "chrM" => 25);
 	my $chr_max_len=1000000000;	# 1G or maximum possible length of any chromosome.
 
 	my @input_file=(); 		# array of hashes {NAME, HANDLE, PHENOTYPE, Flag_read, @line, #IDstart, #IDend}
@@ -148,9 +148,11 @@ sub RHSinfo($) {   	# extract the RHS of a function-gene tuple from info field. 
 sub get_genotype($){ 		#subroutine - extracts genotype from the Individual's data fields of a vcf file. Genotypes are assigned as follows; 0|0 - 0, 1|1 - 2, anything else - 1.
         my $self = shift;
 	my $item = $_[0];
-	if($item =~ /0\|0/ )		#Assumes GT format in vcf file is 0|0
+	if($item =~ /0(\||\/)0/)		#Assumes GT format in vcf file is 0|0
 		{ return '0';}
-	elsif($item =~ /1\|1/ )		#Assumer GT format in vcf file is 1|1
+	elsif($item =~ /\.(\||\/)\./)
+		{ return '0';}
+	elsif($item =~ /1(\||\/)1/)		#Assumer GT format in vcf file is 1|1
 		{ return '2';}
 	else 				#Any other GT is genotyped with "1" for e.g. ./. or 0|1
 		{return '1';}
@@ -550,9 +552,9 @@ sub write_VT_files {
 	                	if(!exists($ID{$patient})){
 
 	                		if($patient=~/control/){
-        	        			print Phenotypes "$patient\t-1\n";
+        	        			print Phenotypes "$patient\t1\n";
                 			} elsif($patient=~/case/) {
-                				print Phenotypes "$patient\t1\n";
+                				print Phenotypes "$patient\t-1\n";
                 			}
                         		$ID{$patient}=1;
                 		}

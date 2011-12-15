@@ -56,11 +56,11 @@ while(1) {
 	}
 	my $sep = "";
 	if(($n = read info, $sep, 1)!=1) {
-		die "No proper separator after $gene. Cannot map\n"; }
+		die "No separator after $gene. Cannot map\n"; }
 	if($sep ne "	") {	
 		die "No proper separator after $gene. Cannot map\n"; }
 
-	my $s = "";my $i = 0;$gene_name = "";
+	my $s = "";my $i = 0;@gene_name = "";
 	while(($n = read info, $s, 1)!=0) {
 		if($s ne "\n") {
 			$gene_name[$i++] = $s;
@@ -68,7 +68,7 @@ while(1) {
 	}
 	if($n == 0) {
 		die "No proper separator after $gene_name. Cannot map\n"; }
-	print scores "uc0$gene\t$gene_name\n";  #decrypts the inputted file.
+	print scores "uc0$gene\t".join('',@gene_name)."\n";  #decrypts the inputted file.
 }
 
 close info;
