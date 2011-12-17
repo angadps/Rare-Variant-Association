@@ -63,31 +63,3 @@ for(my $coi=1;$coi<scalar(@controls);$coi++) {
 	if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
 	print "\n\nEncryption Successful. Sending data to server for association testing.\n";
 
-
-#if((!$flag_annotate && !$flag_encrypt)||$flag_annotate) {
-#	my $temp_file = "temp_gene_list_$username";
-#	unlink($temp_file);
-#	for(my $cai=1;$cai<scalar(@cases);$cai++) {
-#		#$cases[$cai]=$Data."/PI-$SGE_TASK_ID/".$cases[$cai];
-#		print "\nBeginning annotation for $cases[$cai]. It may be a while so please be patient\n";
-#		my @annot = ($ANNOTATE, "-s", $cases[$cai], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE[$cai-1], "-l", $CASE_GENE_LIST[$cai-1]);
-#		print @annot;
-#		system(@annot) or die "Annot case failed\n"; #UNDO
-#		`cat $CASE_GENE_LIST[$cai-1] >> $temp_file`;
-#		unlink($CASE_GENE_LIST[$cai-1]);
-#		print "\n\nAnnotation complete for $cases[$cai]\n";
-#	}
-#	for(my $coi=1;$coi<scalar(@controls);$coi++) {
-#		#$controls[$coi]=$Data."/PI-$SGE_TASK_ID/".$controls[$coi];
-#		print "\nBeginning annotation for $controls[$coi]. It may be a while so please be patient\n";
-#		my @annot = ($ANNOTATE, "-s", $controls[$coi], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL[$coi-1], "-l", $CONTROL_GENE_LIST[$coi-1]);
-#		print @annot;
-#		system(@annot) or die "Annot control failed\n"; #UNDO
-#		`cat $CONTROL_GENE_LIST[$coi-1] >> $temp_file`;
-#		unlink($CONTROL_GENE_LIST[$coi-1]);
-#		print "\n\nAnnotation complete for $controls[$coi]\n";
-#	}
-#	`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
-#	`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
-#	unlink($temp_file);
-#}

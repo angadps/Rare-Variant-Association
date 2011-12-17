@@ -29,7 +29,6 @@ do
 	for ds in `seq 1 $ds_limit`
 	do
 		file=$dir/${stat}_$ds
-		#echo "qsub -b y -l mem=8G,time=1:: -o $file.out -e $file.err $VCF -s $file.vcf -g $gene_ref -r $REF -o ${file}_annotated.vcf -l $file.log"
 		qsub -b y -hard -l mem=8G,time=1:: -o $file.out -e $file.err $VCF -s $file.vcf -g $gene_ref -r $REF -o ${file}_annotated.vcf -l $file.log
 	done
 done

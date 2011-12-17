@@ -79,7 +79,6 @@ do
 	let "n_add_var=2**$n_add_ind"
 	power_file=$Data/$OP/var-$n_add_var.rank
 	echo 0 > $power_file
-#ds_limit=1
 	for ds in `seq 1 $ds_limit`
 	do
 		srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
@@ -103,7 +102,6 @@ do
 	let "n_add_var=2**$n_add_ind"
 	power_file=$Data/$OP/PI-1-var-$n_add_var.rank
 	echo 0 > $power_file
-#ds_limit=1
 	for ds in `seq 1 $ds_limit`
 	do
 		srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
