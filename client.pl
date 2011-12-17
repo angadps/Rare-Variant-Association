@@ -19,6 +19,8 @@ my $localhost = hostname;
 my $VCF_SNP_DIR = "$CURR_DIR/../vcfCodingSnps.v1.5";
 my $ANNOTATE = "./vcfCodingSnps.v1.5";
 
+# Socket to receive data
+# Port number should tally across
 my $receive_socket = new IO::Socket::INET (
 				LocalHost => $localhost, 
 				LocalPort => '7090', 
@@ -29,18 +31,13 @@ my $receive_socket = new IO::Socket::INET (
 die "Could not create receive socket: $!\n" unless $receive_socket;
 
 my $programOptions; 
-my $flag_genkey; 
-my $flag_encrypt; 
-my $flag_decrypt; 
+my $flag_run; 
 my $flag_help;
 my $username=""; 
 my $password=""; 
 my @cases=""; 
 my @controls=""; 
 my $output=""; 
-my @src_dir; 
-my $dest_dir; 
-my $info=""; 
 my $key="key";
 my $genelist="";
 my $weightfile="";
@@ -49,36 +46,27 @@ my $ref="";
 
 sub help_routine() {
 		print "\nHelp Options..\n";
-		print "\n (2) Generate Key: \n\t ./engine.PL --genkey --user=S --pwd=S --gene_ref=S --ref=S --cases=S{,} --controls=S{,} --genelist=S --weight=S --out=S";
- 		print "\n (3) Encrypt Data: \n\t ./engine.pl --encrypt --user=S --keyfile=S --cases=S{,} --controls=S{,} --genelist=S --weight=S --out=S";
-		print "\n (5) Decrypt Scores: \n\t ./engine.PL --decrypt --keyfile=S --out=S --score=S";
+		print "\n (2) Run: \n\t ./engine.PL --run --user=S --pwd=S --gene_ref=S --ref=S --cases=S{,} --controls=S{,} --weight=S";
 		print "\n (6) Help: \n\t ./engine.PL --help\n\n";
 }
 
 if ( @ARGV > 0 ) {
 	$programOptions = GetOptions (
-			"genkey" => \$flag_genkey,
-			"encrypt" => \$flag_encrypt,
-			"decrypt" => \$flag_decrypt,
+			"run" => \$flag_run,
 			"user:s" => \$username,
 			"pwd:s" => \$password,
 			"cases:s{,}" => \@cases,
 			"controls:s{,}" => \@controls,
-			"genelist:s" => \$genelist,
 			"weight:s" => \$weightfile,
 			"gene_ref:s" => \$gene_ref,
 			"ref:s" => \$ref,
-			"out:s" => \$output,
 			"keyfile:s" => \$key,
-			"src:s{2}" => \@src_dir,
-			"dest:s" => \$dest_dir,
-			"score:s" => \$info,
 			"help|?" => \$flag_help);
 	
 	if ($flag_help) {
 		help_routine();
 	}
-	elsif ($flag_genkey)
+	elsif ($flag_run)
 	{
 		print "\n\n\n";
 		print "Beginning Registration now..\n";
@@ -92,8 +80,10 @@ if ( @ARGV > 0 ) {
 #					#
 #########################################
 
+# Port number should tally across
+
 my $server_socket = new IO::Socket::INET (
-				PeerAddr => 'login2.titan',
+				PeerAddr => 'login1.titan',
 				PeerPort => '7090',
 				Proto => 'tcp',
 				);
@@ -257,7 +247,7 @@ die "Could not create send socket: $!\n"; }
 
 		print "Key generation complete. Proceeding to annotation\n";
 
-		my $temp_file = "temp_gene_list";
+		my $temp_file = "temp_gene_list_$username";
 		unlink($temp_file);
 
 		my @ANNOT_CASE = (1 .. scalar(@cases)-1);
@@ -269,25 +259,24 @@ die "Could not create send socket: $!\n"; }
 		print "\nBeginning annotation for $cases[$cai]. It may be a while so please be patient\n";
 		my @annot = ($ANNOTATE, "-s", $cases[$cai], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CASE[$cai-1], "-l", $CASE_GENE_LIST[$cai-1]);
 		print(@annot);
-		#system(@annot) or die "Annot case failed\n"; #UNDO
+		system(@annot) or die "Annot case failed\n"; #UNDO
 		`cat $CASE_GENE_LIST[$cai-1] >> $temp_file`;
 		print "\n\nAnnotation complete for $cases[$cai]\n";
 	}
 		my @ANNOT_CONTROL = (1 .. scalar(@controls)-1);
 		my @CONTROL_GENE_LIST = (1 .. scalar(@controls)-1);
 	for(my $coi=1;$coi<scalar(@controls);$coi++) {
-		#my @annot = ("qsub -sync y -l mem=8G,time=1:: ./example_run.sh");
 		$ANNOT_CONTROL[$coi-1] = $controls[$coi]."control.vcf";
 		$CONTROL_GENE_LIST[$coi-1] = $gene_ref.".control".$coi;
 		print "\nBeginning annotation for $controls[$coi]. It may be a while so please be patient\n";
 		my @annot = ($ANNOTATE, "-s", $controls[$coi], "-g", $gene_ref, "-r", $ref, "-o", $ANNOT_CONTROL[$coi-1], "-l", $CONTROL_GENE_LIST[$coi-1]);
-		#system(@annot) or die "Annot control failed\n"; #UNDO
+		system(@annot) or die "Annot control failed\n"; #UNDO
 		`cat $CONTROL_GENE_LIST[$coi-1] >> $temp_file`;
 		print "\n\nAnnotation complete for $controls[$coi]\n";
 	}
-
-		#`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
-		#`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
+		$genelist = "genelist_$username.txt";
+		`grep "ucsc_name" $temp_file | sort -u > $genelist`; #UNDO
+		`grep -v "ucsc_name" $temp_file | sort -u >> $genelist`; #UNDO
 		unlink($temp_file);
 
 		##### Submit annotated files for encryption, public key, username, genelist (same as that used in annotation) and weights files MUST be provided.
@@ -309,16 +298,16 @@ die "Could not create send socket: $!\n"; }
  		if ($weightfile eq "") {die "weightfile not provided\n";}
                       else  { @arguments = (@arguments, "-weight", $weightfile);}
 print "Encryption command: @arguments\n";
-		#if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
+		if (system(@arguments) != 0) { die "Encryption failed\n"; } #UNDO
 		print "\n\nEncryption Successful. Sending data to server for association testing.\n";
 
 		unlink("$username.tar");
 		my @zip = ("tar", "-c", "--checkpoint=1000", "-f", "$username.tar", $output);
-		#if(system(@zip)!=0){die "@zip failed\n";} #UNDO
+		if(system(@zip)!=0){die "@zip failed\n";} #UNDO
 		print "File tar complete\n";
 		unlink("$username.tar.gz");
 		@zip = ("gzip", "$username.tar");
-		#if(system(@zip)!=0){die "@zip failed\n";} #UNDO
+		if(system(@zip)!=0){die "@zip failed\n";} #UNDO
 		print "File zip complete\n";
 
 		my $term = "XXX\n";
@@ -335,7 +324,7 @@ print "Encryption command: @arguments\n";
 		close ZIP_FILE;
 		print "Data sent. Waiting for Scores file!\n";
 
-		for (my $ct = 0; $ct < 0; $ct++) {
+		for (my $ct = 0; $ct < 40; $ct++) {
 			print "Waited $ct min\n";
 			sleep(60); #UNDO
 		}
@@ -360,14 +349,7 @@ print "Encryption command: @arguments\n";
 		close SCORE_FILE;
 		print "Scores file received. Decrypting...\n";
 
-#		unlink("$score_file.tar");
-#		@zip = ("gunzip", "$score_file.tar.gz");
-#		if(system(@zip)!=0){die "@zip failed\n";}
-#		unlink($score_file);
-#		@zip = ("tar", "-x", "--checkpoint=1000", "-f", "$score_file.tar");
-#		if(system(@zip)!=0){die "@zip failed\n";}
-
-		@arguments = ("perl",$DECRYPT,  # "/ifs/scratch/c2b2/ip_lab/sz2317/privacy/workingdir/decryptScores.pl",
+		@arguments = ("perl",$DECRYPT,  
 				"-keyfile", $key,
 				"-out", "Scores.txt",
 				"-scores", $score_file);

@@ -28,6 +28,7 @@ my $info="";
 my $flag_run;
 my $localhost = hostname;
 
+# Port number to tally across
 my $receive_socket = new IO::Socket::INET (
                                 LocalHost => $localhost,
                                 LocalPort => '7090',
@@ -40,20 +41,12 @@ die "Could not create receive socket: $!\n" unless $receive_socket;
 
 sub help_routine()
 {
-		print "\n (1) New user Registration: \n\t ./engine.PL --register --user=S --pwd=S";
-		print "\n (4) Run Association Tests: \n\t ./engine.PL --assoc --src=S --dest=S [--out=S]";
-		print "\n (6) Help: \n\t ./engine.PL --help\n\n";
+		print "\n (1) Run Association Tests: \n\t ./engine.PL --run";
+		print "\n (2) Help: \n\t ./engine.PL --help\n\n";
 }
 
 if ( @ARGV > 0 ) {
 	$programOptions = GetOptions (
-			"register" => \$flag_register,
-			"assoc" => \$flag_assoc,
-			"user:s" => \$username,
-			"pwd:s" => \$password,
-			"src:s{2}" => \@src_dir,
-			"dest:s" => \$dest_dir,
-			"score:s" => \$info,
 			"help|?" => \$flag_help,
 			"run" => \$flag_run);
 	
@@ -97,7 +90,7 @@ if ( @ARGV > 0 ) {
 						push(@server_list,$server);
 						print Userfile $line."\n";
 					}
-
+					# Port number to tally acorss
 					my $ssend_socket = new IO::Socket::INET (
         					                 PeerAddr => $server,
        						                 PeerPort => '7090',
@@ -148,10 +141,10 @@ if ( @ARGV > 0 ) {
 
 		print "\nWaiting for encrypted files now\n";
 		my $src_dir = "assoc_input";
-		#`rm -rf $src_dir`; #UNDO
-		#`mkdir -p $src_dir`; #UNDO
+		`rm -rf $src_dir`; #UNDO
+		`mkdir -p $src_dir`; #UNDO
 		chdir $src_dir or die "Cannot cd to $src_dir";
-		for (my $ct = 0; $ct < 0; $ct++) {
+		for (my $ct = 0; $ct < 15; $ct++) {
 			print "Waited $ct min\n";
 			sleep(60); #UNDO
 		}
@@ -175,10 +168,10 @@ if ( @ARGV > 0 ) {
 			close ENCRYP_FILE;
 
 			my @unzip = ("gunzip", "$encryp_file.tar.gz");
-			#if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
+			if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
 			print "gunzip complete on user $i\n";
 			@unzip = ("tar", "-x", "--checkpoint=100", "-f", "$encryp_file.tar");
-			#if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
+			if(system(@unzip) !=0) {die "@unzip failed\n";} #UNDO
 
 			print "Encrypted files received from user $i\n";
 		}
@@ -186,12 +179,12 @@ if ( @ARGV > 0 ) {
 		print "Encrypted files received. Starting merge\n";
 
 		$dest_dir = "assoc_output";
-		#`rm -rf $dest_dir`; #UNDO
-		#`mkdir -p $dest_dir`; #UNDO
+		`rm -rf $dest_dir`; #UNDO
+		`mkdir -p $dest_dir`; #UNDO
 		my @arguments = ("perl", $MERGE,
 				"-src", $src_dir,
 				"-out", $dest_dir);
-		#if(system(@arguments)!=0) {die "Merging failed\n";} #UNDO
+		if(system(@arguments)!=0) {die "Merging failed\n";} #UNDO
 		print "\n\nMerging Successful. Performing association testing now\n";
 
 		@arguments = ("perl $ASSOC -out Scores.txt -dir $dest_dir -info $dest_dir/info.txt");
@@ -209,17 +202,17 @@ if ( @ARGV > 0 ) {
 		print Qsub @arguments;
 		close Qsub;
 
-		my @qsubcom = ("qsub", "-sync", "y", "-l", "mem=4G,time=16::", "$qsubfile");
+		my @qsubcom = ("qsub", "-l", "mem=4G,time=16::", "$qsubfile");
 		print(@qsubcom);
-		if(system(@qsubcom)!=0) {die "Association testing failed\n";}
+		my @ret= `@qsubcom`;
+		my $status = `qstat -j $ret[3] 2>&1 | grep Following`;
+		while ($status -eq "") {
+			print "Association testing in progress...\n";
+			my $status = `qstat -j $ret[3] 2>&1 | grep Following`;
+		}
+		#if(system(@qsubcom)!=0) {die "Association testing failed\n";}
 		print "\n\nAssociation Testing Successful.\n\n";
 
-#		unlink("Scores.txt.tar"); 
-#		unlink("Scores.txt.tar.gz");
-#		my @zip = ("tar", "-cf", "Scores.txt.tar", "Scores.txt");
-#		if(system(@zip)!=0) {die "@zip failed\n";}
-#		@zip = ("gzip", "Scores.txt.tar");
-#		if(system(@zip)!=0) {die "gzip Scores.txt.tar failed\n";}
 		print "Sending score files now\n";
 
 		for(my $i=0;$i<$MAX_USERS;$i++) {

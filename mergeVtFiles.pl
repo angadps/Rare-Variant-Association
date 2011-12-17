@@ -85,7 +85,6 @@ foreach $Gene (sort keys %h){
 close infoOut;
 
 sub formatFiles{
-#print "Format\n";
 my $par = shift;
 foreach $ind (keys %{$par}) { 
 	my $index = $ind;

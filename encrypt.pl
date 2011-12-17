@@ -258,13 +258,7 @@ sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file.
 	select((select($temp_handle), $|=1)[0]);
 		my @arr = @{$buffer->{$_}};
 		my $string = $self->code($arr[0],1,"\t"); #Encrypted
-		#my $string = $user->{CIPHER}->encrypt($arr[0]) ."\t";#Encrypted
-                #my $string = $arr[0]."\t";
                 $string.= $self->code($arr[1]-$master_gene->{GENE_HASH}->{$_},2,"\t");
-		#$string.= $user->{CIPHER}->encrypt( $arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
-       	        #$string.= ($arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
-		#$string.= $arr[2]  ."\t";
-		#$string.= $user->{CIPHER}->encrypt( $arr[2] ) ."\t";
 		$string.= ".\t"; # Encrypted
 	 	$string .= join ("\t", @arr[3.. 8]);
 		for (my $it=9; $it < scalar(@arr); $it++) {
@@ -299,8 +293,6 @@ sub append_VT_file {
 		my @IDlist = @arr[9.. ((scalar @arr )-1) ];
 		for(my $i=0;$i<(scalar(@IDlist));$i++){
 			$gene_table{$gene}{$snp}{$IDs[$i]} = $IDlist[$i];
-		#	my $str = $IDs[$i]."\t".$IDlist[$i];
-		#	push @{ $gene_table{$gene}{$snp}}, $str;
 		} #end for
 	}
 }
@@ -366,8 +358,6 @@ sub extractInfo {		#arguments - $object_ref (discarded), $file handle
 			@{$output_buffer->{$theGene}} = @buff;
 			undef @buff;
 		}
-		# REVISIT:
-		# Here I seem to be overriding with the SNP type that has maximum weight instead of collating it. Do I need to do this for update_op_buffer as well?
 		else {
 	                if($output_buffer->{$theGene}[7] < $master_gene->{WEIGHTS}->{$functionName} ) {
 	                        $output_buffer->{$theGene}[7] = $master_gene->{WEIGHTS}->{$functionName};
@@ -458,7 +448,6 @@ sub shatterVCF{		#main function which reads all input vcf files, extracts data i
 
 		foreach $otherFile(@input_file)  {
 			my $isUpdate = $self->update_op_buffer($OPbuffer, $otherFile, $this_chr, $this_pos);	#from remaining files.. i.e. if any chr& pos overlap with this. Check for FLAG_READ=0 done in callee function.
-#REVISIT: move FLAG_READ=1 to update_op_buffer itself
 			if ($isUpdate) {
 				$otherFile->{FLAG_READ} = 1;
 			}
@@ -486,7 +475,6 @@ sub write_pheno_file{		#prints the phenotypes of all individuals from all input 
 	open FH_id, ">".$output_dir."/".$phenotype_file or die "Cannot create $output_dir/$phenotype_file\n";
 	select((select(FH_id), $|=1)[0]);
 	for $id ( keys %IDhash ) {
-		#print FH_id  $user->{CIPHER}->encrypt($id) . "\t"  . $IDhash{$id} . "\n";	# prints Individual ID (encrypted) & phenotype
 		print FH_id $id. "\t". $IDhash{$id}. "\n";   		# prints Individual ID (not encrypted) & phenotype  for testing
         }
         close FH_id;
@@ -535,11 +523,7 @@ sub write_VT_files {
 			$wt.= $gene_table{$gene}{$snps}->{WEIGHT};
 			print Weights $wt."\n";
 
-			#foreach $ind (@{$gene_table{$gene}{$snps}}) {
 			foreach $ind (keys %{$gene_table{$gene}{$snps}}) {
-				#my @array = split(/\t/,$ind);
-	                	#my $patient = $array[0];
-	                	#my $geno = $array[1];
 	                	if($ind eq "WEIGHT") { next;}
 	                	my $patient = $ind;
 				my $geno = $gene_table{$gene}{$snps}->{$ind};
@@ -633,6 +617,7 @@ my $gene={
 
 		my $temp = <geneFH>; chomp($temp); my @line = split(/\t/, $temp);
 		my $indexGeneName=-1; my $indexTxstart=-1; my $i;
+		# Gene file dependent
 		for $i (0 .. $#line){
 		        if ($line[$i] eq "ucsc_name") {$indexGeneName=$i; }      
 			if ($line[$i] eq "genestart") {$indexTxstart=$i; }

@@ -32,9 +32,7 @@ my $GN = `wc -l $info`;
 my $complete = 0;
 my $thresh = 0;
 
-#$GN = `find $dir -type d | wc -l`;  #Counts the numbered gene files in the given directory, GN will also count the directory itself, so it is one greater than the number needed
 
-#for($i=1;$i<=$GN;$i++){ #run the association test on each of the numbered gene directories
 while(1) {
         binmode info; my $gene_name = "";
         if(($n = read info, $gene_name, 8)!=8) {
@@ -55,7 +53,6 @@ while(1) {
         }
         if($n == 0) {
                 die "No proper separator after @gene. Cannot map\n"; }
-	#my $gene_loc = $dir;
 	my $gene_loc = join('', @gene);
 	
 print $gene_loc
