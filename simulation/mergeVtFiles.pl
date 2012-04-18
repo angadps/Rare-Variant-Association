@@ -67,7 +67,7 @@ open infoOut, ">", "$output"."/info.txt";  #creates a new info file mapping the 
 for(my $rdir=0;$rdir<$num_dirs;$rdir++) {
 	system("mkdir -p $output/DIR_$rdir");
 }
-print scalar(keys %h);
+#print scalar(keys %h);
 my $complete = 0;
 my $thresh = 0;
 foreach $Gene (sort keys %h){
@@ -85,7 +85,6 @@ foreach $Gene (sort keys %h){
 close infoOut;
 
 sub formatFiles{
-#print "Format\n";
 my $par = shift;
 foreach $ind (keys %{$par}) { 
 	my $index = $ind;

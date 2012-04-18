@@ -12,7 +12,6 @@ my $CURR_DIR = &Cwd::cwd();
 my $ANNOTATE = "./vcfCodingSnps.v1.5";
 my $ENCRYPT="$CURR_DIR/encrypt.pl";
 
-my $Data="Data_annot";
 my $programOptions; 
 my $username=""; 
 my @cases=""; 

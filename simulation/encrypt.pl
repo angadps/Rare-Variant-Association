@@ -7,6 +7,7 @@ use lib "/ifs/scratch/c2b2/ip_lab/aps2157/privacy/Crypt-CBC-2.22/lib/perl5/site_
 use lib "/ifs/scratch/c2b2/ip_lab/aps2157/privacy/Crypt-CBC-2.22/lib/perl5/site_perl/5.8.8";
 use Crypt::DES;
 use Crypt::CBC;
+use Crypt::CFB;
 use Getopt::Long;
 use Switch;
 use POSIX qw/floor/;
@@ -221,7 +222,8 @@ sub create_gene_file{ 		#subroutine to create a gene file called "geneXXX" where
 	my $name_key=shift;
 	my $random_number = int(rand($num_dirs));
 
-        my $path=$output_dir."/GENES"; #if (! -d $path) { mkdir $path, 0777;}
+        my $path=$output_dir."/GENES";
+	#if (! -d $path) { mkdir $path, 0777;}
 	$path.="/DIR_$random_number"; 
 	#if (! -d $path) { mkdir $path, 0777;}
 	$path.="/GENE".$geneCount[$random_number].".vcf";
@@ -253,6 +255,25 @@ sub empty_gene_pool{ 		#subroutine to close a geneXXX.vcf file, print the gene f
 	}	
 }#end-sub-empty_gene_pool
 
+sub trim($)
+{
+	my $self = shift;
+	my $string = shift;
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	return $string;
+}
+
+sub gen_pos_cipher {
+	my $self = shift;
+	my $pos = shift;
+
+	my $ps = pack( 'I', $pos );
+	$user->{POSCIPHER}->reset;
+	my $ciphertext = $user->{POSCIPHER}->encrypt($ps);
+	return $self->trim(unpack('I', $ciphertext));
+}
+
 sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file. 
         my $self = shift;
 	my $buffer = shift;
@@ -261,14 +282,10 @@ sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file.
         open($temp_handle, ">>", $current_gene_pool{$_}[0]) or die "Cannot open handle to append";
 	select((select($temp_handle), $|=1)[0]);
 		my @arr = @{$buffer->{$_}};
-		my $string = $self->code($arr[0],1,"\t"); #Encrypted
-		#my $string = $user->{CIPHER}->encrypt($arr[0]) ."\t";#Encrypted
-                #my $string = $arr[0]."\t";
-                $string.= $self->code($arr[1]-$master_gene->{GENE_HASH}->{$_},2,"\t");
-		#$string.= $user->{CIPHER}->encrypt( $arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
-       	        #$string.= ($arr[1] - $master_gene->{GENE_HASH}->{$_} ) ."\t";
-		#$string.= $arr[2]  ."\t";
-		#$string.= $user->{CIPHER}->encrypt( $arr[2] ) ."\t";
+		#my $string = $self->code($arr[0],1,"\t"); #Encoded
+		my $string = $arr[0]."\t";
+                #$string.= $self->code($arr[1]-$master_gene->{GENE_HASH}->{$_} + 1,2,"\t"); #Encoded
+                $string.= $self->gen_pos_cipher($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1)."\t";
 		$string.= ".\t"; # Encrypted
 	 	$string .= join ("\t", @arr[3.. 8]);
 		for (my $it=9; $it < scalar(@arr); $it++) {
@@ -291,7 +308,7 @@ sub append_VT_file {
 	for (keys %$buf) {
 		my $gene = $_;
 		my @arr = @{$buf->{$_}};
-		my $snp = $arr[0].':'.($arr[1] - $master_gene->{GENE_HASH}->{$_});
+		my $snp = $arr[0].':'.($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1);
 		my $wt = $arr[7];
 		if(!exists($gene_table{$gene}{$snp}->{WEIGHT})) {
 			$gene_table{$gene}{$snp}->{WEIGHT} = $wt;
@@ -303,8 +320,6 @@ sub append_VT_file {
 		my @IDlist = @arr[9.. ((scalar @arr )-1) ];
 		for(my $i=0;$i<(scalar(@IDlist));$i++){
 			$gene_table{$gene}{$snp}{$IDs[$i]} = $IDlist[$i];
-		#	my $str = $IDs[$i]."\t".$IDlist[$i];
-		#	push @{ $gene_table{$gene}{$snp}}, $str;
 		} #end for
 	}
 }
@@ -490,7 +505,6 @@ sub write_pheno_file{		#prints the phenotypes of all individuals from all input 
 	open FH_id, ">".$output_dir."/".$phenotype_file or die "Cannot create $output_dir/$phenotype_file\n";
 	select((select(FH_id), $|=1)[0]);
 	for $id ( keys %IDhash ) {
-		#print FH_id  $user->{CIPHER}->encrypt($id) . "\t"  . $IDhash{$id} . "\n";	# prints Individual ID (encrypted) & phenotype
 		print FH_id $id. "\t". $IDhash{$id}. "\n";   		# prints Individual ID (not encrypted) & phenotype  for testing
         }
         close FH_id;
@@ -525,7 +539,6 @@ sub write_VT_files {
 
 		if (substr($gene, 0, 3) ne "uc0") { die "gene name not in ucsc format\n";}
 		my $gene_name = substr($gene, 3);
-		#print Info $gene_name."\t$gdir/gene$gect[$random_number]\n"; #Encrypted
 		print Info $user->{CIPHER}->encrypt($gene_name)."\t$gdir/gene$gect[$random_number]\n"; #Encrypted
 
 		my %ID;
@@ -534,24 +547,20 @@ sub write_VT_files {
 			$snps =~s/\n/\\n/;
 			@snp = split(/:/,$snps);
 
-			my $wt = $self->code($snp[0],1,":");
-			$wt.= $self->code($snp[1],2,"\t");
+			my $wt = $snp[0].":";
+			$wt.= $self->gen_pos_cipher($snp[1])."\t";
 			$wt.= $gene_table{$gene}{$snps}->{WEIGHT};
 			print Weights $wt."\n";
 
-			#foreach $ind (@{$gene_table{$gene}{$snps}}) {
 			foreach $ind (keys %{$gene_table{$gene}{$snps}}) {
-				#my @array = split(/\t/,$ind);
-	                	#my $patient = $array[0];
-	                	#my $geno = $array[1];
 	                	if($ind eq "WEIGHT") { next;}
 	                	my $patient = $ind;
 				my $geno = $gene_table{$gene}{$snps}->{$ind};
         	        	$patient =~s/\t/\\t/;
                 		$patient =~s/\n/\\n/;
 
-				my $gt = $self->code($snp[0],1,":");
-				$gt.= $self->code($snp[1],2,"\t");
+				my $gt = $snp[0].":";
+				$gt.= $self->gen_pos_cipher($snp[1])."\t";
 	                	print Genotypes "$patient\t$gt$geno\n";
 	                	if(!exists($ID{$patient})){
 
@@ -609,6 +618,15 @@ my $user={
                                 'regenerate_key'  => 0,
                                 -iv => "$key",
                                 'prepend_iv' => 0 ); #generates the cipher
+	        close keyFH;
+	},
+	POSITION_CIPHER => sub {
+		my $self=shift; $self->{KEY_FILE}=shift;
+	        my $key;
+
+	        open keyFH, "<".$self->{KEY_FILE} or die "Can't open key file\n";
+        	read(keyFH, $key, 8);
+		$self->{POSCIPHER} = new Crypt::CFB $key, 'Crypt::DES';
 	        close keyFH;
 	}};
 	
@@ -669,7 +687,8 @@ if (@ARGV > 0 ) {
                 else { die "Weights file and Gene list file must be provided. \n"; }
  
 	if($options->{KEY_FILE} ne ""){ #signals the encryption key
-		&{$user->{GENERATE_CIPHER}}($user, $options->{KEY_FILE}); }
+		&{$user->{GENERATE_CIPHER}}($user, $options->{KEY_FILE});
+		&{$user->{POSITION_CIPHER}}($user, $options->{KEY_FILE}); }
                 else { die "An encryption key must be provided in a file. \n"; }
  
 	$VCFobj= DATA->new($user, $gene, $options->{OUTPUT_DIR});
