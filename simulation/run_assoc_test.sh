@@ -46,27 +46,27 @@ do
 	power_file=$Data/$OP/var-$n_add_var.rank
 	for ds1 in `seq 1 10`
 	do
-	for ds2 in `seq 1 10`
-	do
-	let "ds=((ds1-1)*10)+ds2"
-	#for ds in `seq 1 $ds_limit`
-	#do
-		srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
-		destdir=$Data/$IP/var-$n_add_var/ds${ds}_out
-		rm -rf $destdir
-		score_file=$Data/$OP/var-${n_add_var}_ds${ds}.txt
-		gene_file=$Data/PI-1/var-$n_var/ds_$ds.gene
-		op=1
-		#rm -rf $destdir
-		mkdir -p $destdir
-		sh merge_run.sh $srcdir $destdir $score_file $gene_file $power_file &
-	#done
-	done
-	while [[ `ps -ef | grep aps | grep -c merge_r` -gt 1 ]]
-	do
-		ps -ef | grep aps | grep -c merge_r
-		sleep 100
-	done
+		for ds2 in `seq 1 10`
+		do
+			let "ds=((ds1-1)*10)+ds2"
+			#for ds in `seq 1 $ds_limit`
+			#do
+			srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
+			destdir=$Data/$IP/var-$n_add_var/ds${ds}_out
+			rm -rf $destdir
+			score_file=$Data/$OP/var-${n_add_var}_ds${ds}.txt
+			gene_file=$Data/PI-1/var-$n_var/ds_$ds.gene
+			op=1
+			#rm -rf $destdir
+			mkdir -p $destdir
+			sh merge_run.sh $srcdir $destdir $score_file $gene_file $power_file &
+			#done
+		done
+		while [[ `ps -ef | grep aps | grep -c merge_r` -gt 1 ]]
+		do
+			ps -ef | grep aps | grep -c merge_r
+			sleep 100
+		done
 	done
 done
 fi
@@ -88,7 +88,7 @@ do
 		op=2
 		#rm -rf $destdir
 		mkdir -p $destdir
-		qsub -hard assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 1
+		qsub -l mem=1G,time=60:: -hard assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 1
 	done
 done
 fi
@@ -111,7 +111,7 @@ do
 		op=2
 		#rm -rf $destdir
 		mkdir -p $destdir
-		qsub -hard assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 2
+		qsub -hard -l mem=1G,time=60:: assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 2
 	done
 done
 fi

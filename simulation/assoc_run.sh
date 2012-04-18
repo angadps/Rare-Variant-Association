@@ -1,7 +1,6 @@
 #!/bin/sh
 #$ -cwd
-#$ -l mem=1G,time=60::
-###### -pe smp 4
+####$ -l mem=1G,time=60::
 
 src_dir=$1
 dest_dir=$2
@@ -25,4 +24,5 @@ then
 	let "power=$power+1"
 	echo $power > $power_file
 fi
+
 

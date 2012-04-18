@@ -8,7 +8,7 @@ PI_limit=10
 ds_limit=100
 num_var=10
 VCF="$PWD/vcfCodingSnps.v1.5"
-gene_ref="/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/simulation/data/RefSeqGenes.txt"
+gene_ref="/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/simulation/data/RefSeqWithUCSCName.txt"
 #REF="/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/simulation/data/bcm_hg18.fasta"
 REF="/ifs/scratch/c2b2/ip_lab/aps2157/privacy/code/simulation/data/human_g1k_v37.fasta"
 
@@ -60,6 +60,7 @@ do
 		mkdir -p $destdir
 		for ds in `seq 1 $ds_limit`
 		do
+			cp $srcdir/ds_${ds}.log $destdir/ds_${ds}.log
 			cp $srcdir/ctrl_${ds}_annotated.vcf $destdir/ctrl_${ds}_annotated.vcf
 			grep ^'#' $srcdir/case_${ds}_annotated.vcf > $destdir/case_${ds}_annotated.vcf
 			grep -v ^'#' $srcdir/case_${ds}_annotated.vcf | awk -v nvar=$n_add_var '{if(match($3,"rs")==0) print $0; else if(nvar>0) {print $0; nvar--;}}' >> $destdir/case_${ds}_annotated.vcf
