@@ -133,5 +133,8 @@ do
 	echo $n_add_var `cat $unpool_any_power_file` | tr ' ' '\t' >> $unpool_any_rank_file
 done
 
+perl -ane 'print "set label \"($F[0],$F[1])\" at $F[0],$F[1]\n"' pooled_test_with  > label_pooled.p
+perl -ane 'print "set label \"($F[0],$F[1])\" at $F[0],$F[1]\n"' unpooled_test_with  > label_unpooled.p
+
 echo Plot using gnuplot now...
 
