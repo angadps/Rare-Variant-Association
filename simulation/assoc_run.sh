@@ -12,17 +12,5 @@ type=$6
 
 perl engine.pl -src=$src_dir -dest=$dest_dir -score=$score -op=$op -type=$type
 
-sort -k 2,2nr ${score}.decrypted > ${score}.decrypted.sorted
-
-actual_gene=`<$gene_file`
-top_score=`head -1 ${score}.decrypted.sorted | cut -f 2`
-top_genes=`awk -v top=$top_score '{if($2==top) print $1}' ${score}.decrypted.sorted`
-
-if [[ -n `echo $top_genes | grep $actual_gene` ]]
-then
-	power=`<$power_file`
-	let "power=$power+1"
-	echo $power > $power_file
-fi
-
+sort -k 2,2gr ${score}.decrypted > ${score}.decrypted.sorted
 

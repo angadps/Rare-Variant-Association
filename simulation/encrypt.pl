@@ -268,10 +268,10 @@ sub gen_pos_cipher {
 	my $self = shift;
 	my $pos = shift;
 
-	my $ps = pack( 'I', $pos );
+	my $ps = pack( 'N', $pos );
 	$user->{POSCIPHER}->reset;
 	my $ciphertext = $user->{POSCIPHER}->encrypt($ps);
-	return $self->trim(unpack('I', $ciphertext));
+	return $self->trim(unpack('N', $ciphertext));
 }
 
 sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file. 
@@ -285,7 +285,8 @@ sub  append_gene_file{  	#subroutine to print to an output geneXXX.vcf file.
 		#my $string = $self->code($arr[0],1,"\t"); #Encoded
 		my $string = $arr[0]."\t";
                 #$string.= $self->code($arr[1]-$master_gene->{GENE_HASH}->{$_} + 1,2,"\t"); #Encoded
-                $string.= $self->gen_pos_cipher($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1)."\t";
+                #$string.= $self->gen_pos_cipher($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1)."\t";
+                $string.= $self->gen_pos_cipher($arr[1])."\t";
 		$string.= ".\t"; # Encrypted
 	 	$string .= join ("\t", @arr[3.. 8]);
 		for (my $it=9; $it < scalar(@arr); $it++) {
@@ -308,7 +309,8 @@ sub append_VT_file {
 	for (keys %$buf) {
 		my $gene = $_;
 		my @arr = @{$buf->{$_}};
-		my $snp = $arr[0].':'.($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1);
+		#my $snp = $arr[0].':'.($arr[1] - $master_gene->{GENE_HASH}->{$_} + 1);
+		my $snp = $arr[0].':'.($arr[1]);
 		my $wt = $arr[7];
 		if(!exists($gene_table{$gene}{$snp}->{WEIGHT})) {
 			$gene_table{$gene}{$snp}->{WEIGHT} = $wt;

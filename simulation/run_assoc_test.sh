@@ -97,22 +97,44 @@ fi
 if [[ $job -eq 7 ]]
 then
 mkdir -p $Data/$OP
+for pin in `seq 1 10`
+do
 for n_add_ind in `seq 0 $num_var`
 do
 	let "n_add_var=2**$n_add_ind"
-	power_file=$Data/$OP/PI-1-var-$n_add_var.rank
+	power_file=$Data/$OP/PI-${pin}-var-$n_add_var.rank
 	echo 0 > $power_file
 	for ds in `seq 1 $ds_limit`
 	do
 		srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
-		destdir=$Data/$UN/var-$n_add_var/ds${ds}_out/PI_1
-		score_file=$Data/$OP/PI-1-var-${n_add_var}_ds${ds}.txt
-		gene_file=$Data/PI-1/var-$n_var/ds_$ds.gene
+		destdir=$Data/$UN/var-$n_add_var/ds${ds}_out/PI_${pin}
+		score_file=$Data/$OP/PI-${pin}-var-${n_add_var}_ds${ds}.txt
+		gene_file=$Data/PI-${pin}/var-$n_var/ds_$ds.gene
 		op=2
 		#rm -rf $destdir
 		mkdir -p $destdir
-		qsub -hard -l mem=1G,time=60:: assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 2
+		qsub -hard -l mem=1G,time=20:: assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 2
 	done
 done
+done
+fi
+
+if [[ $job -eq 8 ]]
+then
+	n_add_ind=$2 # `seq 0 $num_var`
+	let "n_add_var=2**$n_add_ind"
+	power_file=$Data/$OP/var-$n_add_var.rank
+	ds=$3
+	srcdir=$Data/$UN/var-$n_add_var/ds${ds}_out
+	destdir=$Data/$IP/var-$n_add_var/ds${ds}_out
+	score_file=$Data/$OP/var-${n_add_var}_ds${ds}.txt
+	gene_file=$Data/PI-1/var-$n_var/ds_$ds.gene
+	op=2
+	qsub -l mem=4G,time=20:: -hard assoc_run.sh $srcdir $destdir $score_file $gene_file $power_file 1
+fi
+
+if [[ $job -eq 9 ]]
+then
+	sh rank.sh $Data
 fi
 
